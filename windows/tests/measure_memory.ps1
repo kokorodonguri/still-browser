@@ -132,7 +132,7 @@ $valid = @($rows | Where-Object Complete)
 [ordered]@{
     Build = $Build; Run = $Run; Phase = $Phase; EngineSha256 = $engineHash; XulSha256 = $xulHash
     OSVersion = $os.Version; Architecture = $os.OSArchitecture; TotalPhysicalKiB = $os.TotalVisibleMemorySize
-    RequestedIntervalMs = $IntervalMs; DurationSeconds = $clock.Elapsed.TotalSeconds
+    RequestedDurationSeconds = $DurationSeconds; RequestedIntervalMs = $IntervalMs; DurationSeconds = $clock.Elapsed.TotalSeconds
     Samples = $rows.Count; CompleteSamples = $valid.Count; IncompleteSamples = $rows.Count - $valid.Count
     Comparable = ($valid.Count -eq $rows.Count -and $valid.Count -ge 2)
     PrivateBytes = Stats @($valid | ForEach-Object PrivateBytes)

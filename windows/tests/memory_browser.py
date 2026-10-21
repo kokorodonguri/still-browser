@@ -174,9 +174,18 @@ def run(binary, geckodriver, output):
                 chrome("memoryCandidate.updateLastAccessed(Date.now() - 300001); Services.prefs.setBoolPref('still.memory.autoUnload.enabled', false);")
                 assert not tick(), "disabled feature discarded a tab"
                 passed("disable preference takes effect immediately")
+                assert not chrome("return stillMemory._actorRegistered;"), "actor remains registered while disabled"
+                remove_candidate()
+                candidate(edit=lambda: driver.execute_script("window.unsavedState = {text:'draft'}"))
                 chrome("Services.prefs.setBoolPref('still.memory.autoUnload.enabled', true);")
-                chrome("window.originalFlush = gBrowser.prepareDiscardBrowser; gBrowser.prepareDiscardBrowser = async function(tab) { await originalFlush.call(this, tab); if (tab == memoryCandidate) this.selectedTab = tab; };")
+                assert not tick(), "document loaded before activation was discarded"
+                passed("pre-activation JavaScript state retained without input monitoring")
+                remove_candidate()
+                candidate()
+
+                chrome("window.flushCalls = 0; window.originalFlush = gBrowser.prepareDiscardBrowser; gBrowser.prepareDiscardBrowser = async function(tab) { window.flushCalls++; await originalFlush.call(this, tab); if (tab == memoryCandidate) this.selectedTab = tab; };")
                 assert not tick(), "tab selected during flush discarded"
+                assert chrome("return window.flushCalls;") == 1, str(chrome("return {calls:window.flushCalls, eligible:stillMemory.eligible(memoryCandidate,gBrowser), registered:stillMemory._actorRegistered, generation:stillMemory._generation, selected:memoryCandidate.selected};"))
                 chrome("gBrowser.prepareDiscardBrowser = originalFlush;")
                 passed("selection during session flush retained")
             finally:

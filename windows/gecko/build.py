@@ -167,8 +167,8 @@ def mozconfig(source: Path, objdir: Path, l10n_base: Path, safebrowsing: Path | 
         text += f"ac_add_options --enable-profile-{pgo}\n"
     if profile:
         text += f"ac_add_options --with-pgo-profile-path={profile.resolve()}\n"
-    text += f'export CFLAGS="-DSTILL_DIRTY_MAX_PAGES={dirty_pages}"\n'
-    text += f'export CXXFLAGS="-DSTILL_DIRTY_MAX_PAGES={dirty_pages}"\n'
+    text += f'export CFLAGS="${{CFLAGS:+$CFLAGS }}-DSTILL_DIRTY_MAX_PAGES={dirty_pages}"\n'
+    text += f'export CXXFLAGS="${{CXXFLAGS:+$CXXFLAGS }}-DSTILL_DIRTY_MAX_PAGES={dirty_pages}"\n'
     path = source / f"mozconfig.still-{arch}"
     path.write_text(text)
     return path

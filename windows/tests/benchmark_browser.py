@@ -9,13 +9,14 @@ from datetime import datetime, timezone
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import math
 import os
 from pathlib import Path
 import platform
 from threading import Thread
 import time
 
-from benchmark_metrics import stats, assess_report
+from benchmark_metrics import stats, assess_report, validate_scroll
 
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
@@ -38,6 +39,27 @@ class Pages(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
+
+
+SCROLL = """
+const done=arguments[0], intervals=[], startY=scrollY;
+const root=document.scrollingElement;
+const blocked=[document.documentElement, document.body].filter(Boolean)
+  .some(e => ["hidden", "clip"].includes(getComputedStyle(e).overflowY));
+if (!root || blocked || root.scrollHeight-root.clientHeight-startY < 2400) {
+  done({startY, scrollY, movedFrames:0, frameIntervalsMs:[], error:"insufficient scrollable range or blocked scrolling"});
+} else {
+  let last=performance.now(), previous=scrollY, movedFrames=0, frames=0;
+  function step(now) {
+    intervals.push(now-last); last=now;
+    if (scrollY > previous) movedFrames++;
+    previous=scrollY;
+    if (++frames === 60) done({startY, scrollY, movedFrames, frameIntervalsMs:intervals});
+    else { scrollBy({top:40, behavior:"instant"}); requestAnimationFrame(step); }
+  }
+  scrollBy({top:40, behavior:"instant"}); requestAnimationFrame(step);
+}
+"""
 
 
 REPORT = r"""
@@ -98,6 +120,8 @@ def run(args):
               'urls': urls if args.urls else ['fixture/' + str(i) for i in range(10)],
               'engineSha256': file_hash(args.firefox),
               'xulSha256': file_hash(args.firefox.parent / ('xul.dll' if os.name == 'nt' else 'libxul.so')),
+              'sampling': {'intervalSeconds': args.interval, 'samples': args.samples,
+                           'schedule': 'start-to-start', 'durationSeconds': None},
               'operations': [], 'allocator': [], 'errors': []}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     driver = None
@@ -151,27 +175,23 @@ def run(args):
             expected_urls[driver.current_window_handle] = driver.current_url
             driver.execute_script('scrollTo(0,0)')
             def scroll():
-                return driver.execute_async_script('''
-                  const done=arguments[0], intervals=[];
-                  let last=performance.now(), frames=0;
-                  function step(now) {
-                    intervals.push(now-last); last=now; scrollBy(0,40);
-                    if (++frames === 60) done({frameIntervalsMs:intervals, scrollY});
-                    else requestAnimationFrame(step);
-                  }
-                  requestAnimationFrame(step);
-                ''')
+                detail = driver.execute_async_script(SCROLL)
+                validate_scroll(detail)
+                return detail
             measure('scroll', iteration, scroll)
         # Reports are deliberately outside latency measurements: collecting them
         # has overhead. Do not force GC, minimize memory, or trim the working set.
+        sampling_started = time.perf_counter()
         for sample in range(args.samples):
+            time.sleep(max(0, sampling_started + sample * args.interval - time.perf_counter()))
+            sample_started = time.perf_counter() - sampling_started
             driver.set_context('chrome')
             report = assess_report(driver.execute_async_script(REPORT))
-            report.update(sample=sample, timeUtc=datetime.now(timezone.utc).isoformat())
+            report.update(sample=sample, timeUtc=datetime.now(timezone.utc).isoformat(),
+                          startSeconds=sample_started, endSeconds=time.perf_counter() - sampling_started)
             result['allocator'].append(report)
             driver.set_context('content')
-            if sample + 1 < args.samples:
-                time.sleep(args.interval)
+            result['sampling']['durationSeconds'] = time.perf_counter() - sampling_started
     except Exception as error:
         result['errors'].append(str(error))
         raise
@@ -205,7 +225,7 @@ if __name__ == '__main__':
     parser.add_argument('--headless', action='store_true')
     parser.add_argument('--auto-unload', action='store_true')
     args = parser.parse_args()
-    if args.repeats < 2 or args.samples < 2 or args.interval < 0:
+    if args.repeats < 2 or args.samples < 2 or not math.isfinite(args.interval) or args.interval < 0:
         parser.error('at least 2 repeats/samples and a nonnegative interval required')
     if args.output.exists():
         parser.error('output already exists')

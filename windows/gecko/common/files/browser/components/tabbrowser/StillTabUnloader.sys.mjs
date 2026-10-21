@@ -19,14 +19,6 @@ export const StillTabUnloader = {
       return;
     }
     this._initialized = true;
-    ChromeUtils.registerWindowActor("StillTabState", {
-      child: {
-        esModuleURI: "moz-src:///browser/components/tabbrowser/StillTabStateChild.sys.mjs",
-        events: { input: { capture: true }, change: { capture: true },
-          pointerdown: { capture: true }, keydown: { capture: true } },
-      },
-      allFrames: true,
-    });
     Services.prefs.addObserver(ENABLED, this);
     this.updateTimer();
     Services.obs.addObserver(this, "quit-application-granted");
@@ -34,8 +26,27 @@ export const StillTabUnloader = {
 
   updateTimer() {
     clearInterval(this._timer);
-    this._timer = Services.prefs.getBoolPref(ENABLED, false)
-      ? setInterval(() => this.tick().catch(console.error), INTERVAL) : null;
+    this._timer = null;
+    const enabled = !this._stopped && Services.prefs.getBoolPref(ENABLED, false);
+    if (enabled && !this._actorRegistered) {
+      ChromeUtils.registerWindowActor("StillTabState", {
+        child: {
+          esModuleURI: "moz-src:///browser/components/tabbrowser/StillTabStateChild.sys.mjs",
+          events: { DOMDocElementInserted: { capture: true }, input: { capture: true }, change: { capture: true },
+            pointerdown: { capture: true }, keydown: { capture: true } },
+        },
+        allFrames: true,
+      });
+      this._actorRegistered = true;
+      this._generation = (this._generation || 0) + 1;
+    } else if (!enabled && this._actorRegistered) {
+      ChromeUtils.unregisterWindowActor("StillTabState");
+      this._actorRegistered = false;
+      this._generation = (this._generation || 0) + 1;
+    }
+    if (enabled) {
+      this._timer = setInterval(() => this.tick().catch(console.error), INTERVAL);
+    }
   },
 
   observe(_subject, topic) {
@@ -48,7 +59,7 @@ export const StillTabUnloader = {
     this._timer = null;
     this._stopped = true;
     Services.obs.removeObserver(this, "quit-application-granted");
-    ChromeUtils.unregisterWindowActor("StillTabState");
+    this.updateTimer();
   },
 
   eligible(tab, gBrowser) {
@@ -129,6 +140,7 @@ export const StillTabUnloader = {
           if (!this.eligible(tab, gBrowser)) {
             continue;
           }
+          const generation = this._generation;
           const browser = tab.linkedBrowser;
           const frames = this.frames(browser.browsingContext);
           if (!await this.passesRetentionChecks(frames)) {
@@ -144,6 +156,9 @@ export const StillTabUnloader = {
           const current = this.frames(browser.browsingContext);
           if (current.length !== frames.length || current.some((global, i) => global !== frames[i])) {
             continue;
+          }
+          if (generation !== this._generation) {
+            continue; // Disabled/re-enabled while a query or flush was in flight.
           }
           if (gBrowser.discardBrowser(tab)) {
             break; // At most one successful discard across all windows per tick.

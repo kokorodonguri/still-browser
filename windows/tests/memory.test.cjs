@@ -208,6 +208,7 @@ test("one timer across repeated initialization and cleanup on shutdown", async (
 function child(elements = []) {
   const Child = moduleScope("StillTabStateChild.sys.mjs", { JSWindowActorChild: class {} }, "StillTabStateChild");
   const actor = new Child();
+  actor.handleEvent({type: "DOMDocElementInserted", isTrusted: true});
   actor.contentWindow = { MutationObserver: class {
     observe() {} disconnect() {} takeRecords() { return []; }
   } };
@@ -261,10 +262,12 @@ test("trusted edits are sticky; incomplete/unknown content is retained", () => {
   h.tab();
   await h.controller.tick();
   assert.equal(h.intervals.size, 0);
+  assert.equal(h.actorNames.size, 0);
   assert.equal(h.windows[0].gBrowser.discarded.length, 0);
   h.prefs.set("still.memory.autoUnload.enabled", true);
   h.controller.observe(null, "nsPref:changed");
   assert.equal(h.intervals.size, 1);
+  assert.equal(h.actorNames.size, 1);
   h.prefs.set("still.memory.autoUnload.enabled", false);
   h.controller.observe(null, "nsPref:changed");
   assert.equal(h.intervals.size, 0);
@@ -286,4 +289,25 @@ test("failed initial scan remains retained on later queries", () => {
   a.document.createTreeWalker = () => { throw Error("unavailable"); };
   assert.equal(a.receiveMessage({name: "Still:PassesRetentionChecks"}), false);
   assert.equal(a.receiveMessage({name: "Still:PassesRetentionChecks"}), false);
+});
+
+test("documents already open on activation remain retained", () => {
+  const a = child();
+  delete a._observedFromStart;
+  assert.equal(a.receiveMessage({name: "Still:PassesRetentionChecks"}), false);
+  a.handleEvent({type: "DOMDocElementInserted", isTrusted: false});
+  assert.equal(a.receiveMessage({name: "Still:PassesRetentionChecks"}), false);
+});
+
+test("disable/re-enable during flush invalidates in-flight discard", async () => {
+  const h = harness(); h.controller.init(); h.tab();
+  h.windows[0].gBrowser.prepareDiscardBrowser = async () => {
+    h.prefs.set("still.memory.autoUnload.enabled", false);
+    h.controller.observe(null, "nsPref:changed");
+    assert.equal(h.actorNames.size, 0);
+    h.prefs.set("still.memory.autoUnload.enabled", true);
+    h.controller.observe(null, "nsPref:changed");
+  };
+  await h.controller.tick();
+  assert.equal(h.windows[0].gBrowser.discarded.length, 0);
 });

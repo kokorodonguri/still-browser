@@ -2,6 +2,8 @@
 import importlib.util
 from pathlib import Path
 import tempfile
+import subprocess
+import os
 import unittest
 from unittest.mock import patch
 
@@ -53,6 +55,16 @@ class GeckoChecks(unittest.TestCase):
                 baseline = gecko.mozconfig(source, source / "obj", source / "l10n", None, arch).read_text()
                 self.assertIn("--disable-lto", baseline)
                 self.assertNotIn("--enable-profile-", baseline)
+
+    def test_existing_compiler_flags_survive_shell_expansion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)
+            config = gecko.mozconfig(source, source / 'obj', source / 'l10n', None, dirty_pages=32).read_text()
+            exports = '\n'.join(line for line in config.splitlines() if line.startswith(('export CFLAGS=', 'export CXXFLAGS=')))
+            for original in ('', '-O2 -DNAME="a b"'):
+                output = subprocess.check_output(['sh', '-c', exports + '\nprintf "%s\\n" "$CFLAGS" "$CXXFLAGS"'],
+                    env=dict(os.environ, CFLAGS=original, CXXFLAGS=original), text=True).splitlines()
+                self.assertEqual(output, [(original + ' ' if original else '') + '-DSTILL_DIRTY_MAX_PAGES=32'] * 2)
 
     def test_pgo_validation_precedes_download(self):
         for flags in (["--pgo", "use"], ["--pgo", "generate", "--lto", "thin"]):

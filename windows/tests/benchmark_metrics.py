@@ -20,3 +20,10 @@ def assess_report(report):
     report['complete'] = bool(expected) and not report['error'] and not report['missingPids'] and None not in received
     report['dirtyBytes'] = sum(r['amount'] for r in dirty) if report['complete'] else None
     return report
+
+
+def validate_scroll(detail):
+    if (detail.get('error') or detail.get('movedFrames') != 60 or
+            detail.get('scrollY', 0) - detail.get('startY', 0) < 2300 or
+            len(detail.get('frameIntervalsMs', [])) != 60):
+        raise ValueError(f"Scroll workload did not complete: {detail}")

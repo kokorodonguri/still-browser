@@ -11,6 +11,7 @@ class ComparisonChecks(unittest.TestCase):
     def sample(self):
         return dict(Comparable=True, OSVersion='test', Architecture='ARM64', TotalPhysicalKiB=100,
                     Phase='loaded', RequestedIntervalMs=1000, Samples=120,
+                    RequestedDurationSeconds=120, DurationSeconds=120.1,
                     PrivateBytes=dict(Median=1000, Peak=2000), WorkingSetBytes=dict(Median=2000, Peak=3000))
 
     def test_missing_processes_are_not_savings(self):
@@ -57,3 +58,33 @@ class ReporterChecks(unittest.TestCase):
         self.assertTrue(report['complete'])
         self.assertEqual(report['dirtyBytes'], 10)
         self.assertEqual(stats([1, 100]), dict(median=50.5, peak=100, p95=100))
+
+
+class SamplingChecks(unittest.TestCase):
+    def sample(self, interval=1, end=1.1):
+        return dict(sampling=dict(intervalSeconds=interval, samples=2, schedule='start-to-start', durationSeconds=end),
+                    allocator=[dict(startSeconds=0, endSeconds=.1), dict(startSeconds=end-.1, endSeconds=end)])
+
+    def test_interval_and_elapsed_must_match(self):
+        for other in (self.sample(60, 60.1), self.sample(1, 60.1)):
+            with self.assertRaises(ValueError):
+                compare.check_sampling(self.sample(), other)
+
+    def test_legacy_and_invalid_times_rejected(self):
+        for value in (None, float('nan'), float('inf'), -1):
+            other = self.sample(); other['sampling']['durationSeconds'] = value
+            with self.assertRaises(ValueError):
+                compare.check_sampling(self.sample(), other)
+        with self.assertRaises(ValueError):
+            compare.check_sampling(dict(allocator=[]), dict(allocator=[]))
+
+    def test_small_scheduling_jitter_allowed(self):
+        compare.check_sampling(self.sample(), self.sample(end=1.12))
+
+    def test_scroll_requires_actual_movement_for_whole_workload(self):
+        from benchmark_metrics import validate_scroll
+        valid = dict(startY=0, scrollY=2400, movedFrames=60, frameIntervalsMs=[16]*60)
+        validate_scroll(valid)
+        for change in (dict(scrollY=0), dict(movedFrames=0), dict(scrollY=200, movedFrames=5)):
+            with self.assertRaises(ValueError):
+                validate_scroll(dict(valid, **change))

@@ -5,6 +5,10 @@
 // Only a boolean crosses IPC. Never collect or send form values.
 export class StillTabStateChild extends JSWindowActorChild {
   handleEvent(event) {
+    if (event.type === "DOMDocElementInserted" && event.isTrusted) {
+      this._observedFromStart = true;
+      return;
+    }
     if (event.isTrusted) {
       // Sticky for this document, including custom editors and shadow DOM.
       // Keeping a submitted form alive is preferable to losing an unsaved draft.
@@ -19,7 +23,7 @@ export class StillTabStateChild extends JSWindowActorChild {
     }
     try {
       const doc = this.document;
-      if (this._edited || this._retained || !doc || doc.hidden === false || doc.readyState !== "complete" ||
+      if (!this._observedFromStart || this._edited || this._retained || !doc || doc.hidden === false || doc.readyState !== "complete" ||
           doc.designMode === "on") {
         return false;
       }
