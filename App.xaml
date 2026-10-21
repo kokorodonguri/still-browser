@@ -1,0 +1,61 @@
+<Application x:Class="LightweightBrowser.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml">
+  <Application.Resources>
+    <Color x:Key="Canvas">#1C1C1E</Color>
+    <Color x:Key="Sidebar">#1C1C1E</Color>
+    <Color x:Key="Panel">#2C2C2E</Color>
+    <Color x:Key="Muted">#AEAEB2</Color>
+    <Color x:Key="Accent">#0A84FF</Color>
+    <SolidColorBrush x:Key="CanvasBrush" Color="{StaticResource Canvas}"/>
+    <SolidColorBrush x:Key="SidebarBrush" Color="{StaticResource Sidebar}"/>
+    <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource Panel}"/>
+    <SolidColorBrush x:Key="MutedBrush" Color="{StaticResource Muted}"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Accent}"/>
+    <Style TargetType="Button">
+      <Setter Property="Foreground" Value="#F5F5F7"/><Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="10,8"/><Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FontSize" Value="14"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+        <Border x:Name="bd" Background="{TemplateBinding Background}" BorderThickness="1" BorderBrush="Transparent" CornerRadius="8" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/></Border>
+        <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="#3A3A3C"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="bd" Property="Opacity" Value=".72"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="bd" Property="Opacity" Value=".35"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/><Setter TargetName="bd" Property="BorderThickness" Value="1"/></Trigger></ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <!-- Thin capsule scrollbars instead of the Windows-native arrows and track. -->
+    <Style x:Key="ScrollThumb" TargetType="Thumb">
+      <Setter Property="OverridesDefaultStyle" Value="True"/><Setter Property="IsTabStop" Value="False"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Thumb">
+        <Border x:Name="bar" Background="#6B8E8E93" CornerRadius="3"/>
+        <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bar" Property="Background" Value="#A68E8E93"/></Trigger><Trigger Property="IsDragging" Value="True"><Setter TargetName="bar" Property="Background" Value="#CC8E8E93"/></Trigger></ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="ScrollPage" TargetType="RepeatButton">
+      <Setter Property="OverridesDefaultStyle" Value="True"/><Setter Property="IsTabStop" Value="False"/><Setter Property="Focusable" Value="False"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style TargetType="ScrollBar">
+      <Setter Property="OverridesDefaultStyle" Value="True"/><Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Width" Value="10"/><Setter Property="MinWidth" Value="10"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">
+        <Track x:Name="PART_Track" IsDirectionReversed="True" Margin="2">
+          <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource ScrollPage}" Command="ScrollBar.PageUpCommand"/></Track.DecreaseRepeatButton>
+          <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource ScrollPage}" Command="ScrollBar.PageDownCommand"/></Track.IncreaseRepeatButton>
+          <Track.Thumb><Thumb Style="{StaticResource ScrollThumb}" MinHeight="28"/></Track.Thumb>
+        </Track>
+      </ControlTemplate></Setter.Value></Setter>
+      <Style.Triggers>
+        <Trigger Property="Orientation" Value="Horizontal">
+          <Setter Property="Width" Value="Auto"/><Setter Property="MinWidth" Value="0"/><Setter Property="Height" Value="10"/><Setter Property="MinHeight" Value="10"/>
+          <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar">
+            <Track x:Name="PART_Track" IsDirectionReversed="False" Margin="2">
+              <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource ScrollPage}" Command="ScrollBar.PageLeftCommand"/></Track.DecreaseRepeatButton>
+              <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource ScrollPage}" Command="ScrollBar.PageRightCommand"/></Track.IncreaseRepeatButton>
+              <Track.Thumb><Thumb Style="{StaticResource ScrollThumb}" MinWidth="28"/></Track.Thumb>
+            </Track>
+          </ControlTemplate></Setter.Value></Setter>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style TargetType="TextBox"><Setter Property="Foreground" Value="#F5F5F7"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="FontSize" Value="14"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
+  </Application.Resources>
+</Application>

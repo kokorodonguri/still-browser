@@ -1,0 +1,31 @@
+[Desktop Entry]
+Type=Application
+Name=Still Browser
+Comment=Firefox with a quieter workspace
+Exec=still-browser %u
+Icon=still-browser
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;
+StartupWMClass=still-browser
+Actions=import;update;newtab-image;remove-newtab-image;
+
+[Desktop Action import]
+Name=Import from Another Browser…
+Name[ja]=他のブラウザから引き継ぐ…
+Exec=still-browser --import
+
+[Desktop Action update]
+Name=Check for Updates
+Name[ja]=アップデートを確認
+Exec=still-browser --update
+
+[Desktop Action newtab-image]
+Name=Choose New Tab Picture…
+Name[ja]=新しいタブの画像を選ぶ…
+Exec=still-browser --newtab-image
+
+[Desktop Action remove-newtab-image]
+Name=Remove New Tab Picture
+Name[ja]=新しいタブの画像を外す
+Exec=still-browser --remove-newtab-image

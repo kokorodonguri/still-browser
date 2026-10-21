@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src chrome://still; style-src chrome://still; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>新しいタブ · Still</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="newtab.css">
+  <script src="newtab.js" defer></script>
+</head>
+<body>
+  <header><a class="wordmark" href="chrome://still/content/newtab.html" aria-label="Still ホーム">Still</a><a class="settings-link" href="chrome://still/content/settings.html" aria-label="Still の設定"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></svg></a></header>
+  <main>
+    <p class="eyebrow">STILL BROWSER</p>
+    <h1>さあ、次の発見へ。</h1>
+    <p class="intro">いつもの場所も、まだ知らない世界も。</p>
+    <form id="search-form" role="search" aria-label="ウェブを検索">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+      <label class="sr-only" for="query">検索する言葉</label>
+      <input id="query" type="search" placeholder="検索する言葉を入力" autocomplete="off" spellcheck="false" aria-describedby="search-status" disabled>
+      <button id="submit-search" type="submit" aria-label="検索する" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></button>
+    </form>
+    <p id="search-status" role="status" aria-live="polite">検索を準備しています…</p>
+    <nav class="shortcuts" aria-label="ライブラリー">
+      <button id="bookmarks"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4Z"/></svg><span>ブックマーク</span><span class="arrow" aria-hidden="true">↗</span></button>
+      <button id="history"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2.5 7M3 5v6h6M12 7v5l3 2"/></svg><span>履歴</span><span class="arrow" aria-hidden="true">↗</span></button>
+      <button id="downloads"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg><span>ダウンロード</span><span class="arrow" aria-hidden="true">↗</span></button>
+    </nav>
+    <p id="error" role="alert" hidden></p>
+  </main>
+  <footer><span class="footer-brand">Still · あなたのペースで。</span><span class="keyboard-hint"><kbd>Ctrl</kbd> + <kbd>L</kbd> で、どこへでも。</span></footer>
+</body>
+</html>

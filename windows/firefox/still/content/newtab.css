@@ -1,0 +1,51 @@
+/* The start page is local: no remote artwork, fonts, or third-party requests. */
+:root { background: var(--still-canvas); color: var(--still-label); }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { min-height: 100vh; min-height: 100dvh; margin: 0; display: flex; flex-direction: column; background: transparent; }
+a { color: inherit; text-decoration: none; }
+svg { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+header, footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-inline: clamp(24px, 4vw, 64px); }
+header { min-height: 96px; border-bottom: 1px solid var(--still-line); }
+.wordmark { font: 600 21px/1.24 var(--still-font-display); letter-spacing: -.5px; }
+.settings-link { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: var(--still-button-radius); background: transparent; }
+.settings-link:hover { background: var(--still-hover); }
+main { width: min(100%, 980px); margin: auto; padding: 64px 24px; text-align: center; }
+.eyebrow { margin: 0 0 20px; color: var(--still-secondary); font-size: 12px; letter-spacing: .08em; font-weight: 400; }
+h1 { margin: 0; font-family: var(--still-font-display); font-size: clamp(28px, 4vw, 44px); line-height: 1.18; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
+.intro { margin: 20px 0 40px; color: var(--still-secondary); font-size: 17px; line-height: 1.47; font-weight: 300; letter-spacing: -.016em; }
+form { display: flex; align-items: center; gap: 12px; max-width: 640px; margin-inline: auto; padding: 8px 8px 8px 20px; border: 1px solid var(--still-line); border-radius: var(--still-control-radius); background: var(--still-surface); color: var(--still-secondary); }
+form:focus-within { outline: 2px solid var(--still-focus); outline-offset: 4px; }
+input, button { font: inherit; color: inherit; }
+input { width: 100%; min-width: 0; min-height: 40px; border: 0; outline: 0; background: transparent; color: var(--still-label); font-size: 17px; letter-spacing: -.016em; }
+input::placeholder { color: var(--still-secondary); opacity: 1; }
+button { cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+#submit-search { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border: 0; border-radius: var(--still-button-radius); background: var(--still-action); color: var(--still-on-accent); }
+#submit-search:enabled:hover { filter: brightness(1.12); }
+#search-status { min-height: 18px; margin: 12px 2px 32px; color: var(--still-secondary); font-size: 12px; }
+.shortcuts { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.shortcuts button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 0; border-radius: var(--still-button-radius); background: transparent; font-size: 14px; }
+.shortcuts button > svg { width: 17px; height: 17px; }
+.shortcuts button:hover { background: var(--still-hover); }
+.arrow { color: var(--still-secondary); }
+footer { min-height: 72px; border-top: 1px solid var(--still-line); color: var(--still-secondary); font-size: 12px; }
+kbd { font: inherit; padding: 2px 5px; border: 1px solid var(--still-control-line); border-radius: 4px; }
+#error { color: var(--still-label); font-size: 12px; }
+:focus-visible { outline: 2px solid var(--still-focus); outline-offset: 4px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 540px) {
+  header { min-height: 76px; }
+  .keyboard-hint { display: none; }
+  .settings-link { margin-inline-start: auto; }
+  main { padding-block: 40px; }
+  .shortcuts { gap: 8px; }
+  .shortcuts button { min-height: 44px; }
+}
+@media (max-height: 650px) { main { padding-block: 32px; } header { min-height: 72px; } }
+@media (prefers-reduced-motion: no-preference) {
+  .shortcuts button, .settings-link { transition: background-color 140ms ease, border-color 140ms ease; }
+}
+@media (forced-colors: active) {
+  #submit-search { background: ButtonFace; color: ButtonText; border: 1px solid ButtonBorder; }
+}

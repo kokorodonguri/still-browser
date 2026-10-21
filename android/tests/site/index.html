@@ -1,0 +1,21 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Home</title>
+<style>
+:root{color-scheme:light dark}
+body{margin:0;font:18px sans-serif}
+/* Fixed rows so the device test can tap by position: row i spans y = 72i .. 72i+64 (CSS px). */
+.row{position:absolute;left:0;right:0;height:64px;display:flex;align-items:center;justify-content:center;
+  border:0;margin:0;padding:0;font:inherit;background:rgb(127 127 127 / 15%);color:inherit;text-decoration:none}
+</style></head><body>
+<a class="row" style="top:0" href="/second.html">Second page</a>
+<a class="row" style="top:72px" href="/second.html?blank" target="_blank">Open in new tab</a>
+<button class="row" style="top:144px" onclick="window.open('/popup.html','p','width=400,height=500')">Popup</button>
+<a class="row" style="top:216px" href="/file.bin">Download file</a>
+<a class="row" style="top:288px" href="mailto:test@example.org">Mail link</a>
+<a class="row" style="top:360px" href="file:///etc/hosts">File link</a>
+<p style="position:absolute;top:432px;left:16px">Scheme: <b id="scheme"></b></p>
+<script>
+const q=matchMedia('(prefers-color-scheme: dark)');
+const set=()=>{const s=q.matches?'dark':'light';document.getElementById('scheme').textContent=s;document.title='Home '+s};
+set();q.addEventListener('change',set);
+setTimeout(()=>window.open('/popup.html?auto'),300);
+</script></body></html>

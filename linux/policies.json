@@ -1,0 +1,21 @@
+{
+  "policies": {
+    "DontCheckDefaultBrowser": true,
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "SearchEngines": { "Default": "Google" },
+    "DisplayBookmarksToolbar": "never",
+    "DisableTelemetry": true,
+    "Preferences": {
+      "browser.urlbar.showSearchSuggestionsFirst": { "Value": false, "Status": "default" },
+      "browser.urlbar.autoFill.adaptiveHistory.enabled": { "Value": true, "Status": "default" },
+      "browser.urlbar.suggest.trending": { "Value": false, "Status": "default" },
+      "browser.urlbar.suggest.engines": { "Value": false, "Status": "default" },
+      "browser.urlbar.suggest.weather": { "Value": false, "Status": "default" },
+      "browser.urlbar.suggest.yelp": { "Value": false, "Status": "default" },
+      "browser.urlbar.suggest.addons": { "Value": false, "Status": "default" },
+      "browser.urlbar.suggest.mdn": { "Value": false, "Status": "default" },
+      "browser.urlbar.suggest.fakespot": { "Value": false, "Status": "default" }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+bin/
+obj/
+artifacts/
+*.user
+linux/runtime/
+.venv-linux/
+.tools/
+__pycache__/
+desktop/target/
+desktop/ui/node_modules/
+desktop/ui/dist/
+desktop/src-tauri/gen/
+site/public/
+.claude/worktrees/

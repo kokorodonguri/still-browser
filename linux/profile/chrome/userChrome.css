@@ -1,0 +1,99 @@
+/* Still: platform controls with neutral surfaces and a single system-blue accent. */
+:root {
+  --still-canvas: #f5f5f7;
+  --still-material: rgb(255 255 255 / 70%);
+  --still-surface: #fff;
+  --still-label: #1d1d1f;
+  --still-secondary: #68686d;
+  --still-line: rgb(0 0 0 / 6%);
+  --still-hover: rgb(0 0 0 / 5%);
+  --still-blue: #007aff;
+  --still-shadow: inset 0 1px 0 rgb(255 255 255 / 50%), 0 1px 2px rgb(0 0 0 / 6%), 0 4px 12px rgb(0 0 0 / 4%);
+  --lwt-accent-color: var(--still-canvas) !important;
+  --lwt-text-color: var(--still-label) !important;
+  --toolbar-bgcolor: var(--still-canvas) !important;
+  --toolbar-color: var(--still-label) !important;
+  --toolbar-field-background-color: var(--still-surface) !important;
+  --toolbar-field-focus-background-color: var(--still-surface) !important;
+  --toolbar-field-color: var(--still-label) !important;
+  --toolbar-field-focus-color: var(--still-label) !important;
+  --toolbar-field-border-color: var(--still-line) !important;
+  --toolbar-field-focus-border-color: var(--still-blue) !important;
+  --arrowpanel-background: var(--still-surface) !important;
+  --arrowpanel-color: var(--still-label) !important;
+  --arrowpanel-border-color: var(--still-line) !important;
+  --tab-selected-bgcolor: var(--still-surface) !important;
+  --tab-selected-textcolor: var(--still-label) !important;
+  --tab-border-radius: 12px !important;
+  --tab-min-height: 40px !important;
+  --toolbox-bgcolor: var(--still-canvas) !important;
+  --sidebar-background-color: var(--still-canvas) !important;
+  --sidebar-text-color: var(--still-label) !important;
+  --sidebar-border-color: var(--still-line) !important;
+  --sidebar-width: 224px;
+  --focus-outline-color: var(--still-blue) !important;
+  --color-accent-primary: var(--still-blue) !important;
+  --color-accent-primary-hover: #0066d6 !important;
+  --color-accent-primary-active: #0055b3 !important;
+  --button-text-color-primary: #fff !important;
+  --toolbarbutton-hover-background: var(--still-hover) !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Noto Sans", sans-serif !important;
+  background: var(--still-canvas) !important;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --still-canvas: #1c1c1e;
+    --still-material: rgb(30 30 30 / 75%);
+    --still-surface: #2c2c2e;
+    --still-label: #f5f5f7;
+    --still-secondary: #aeaeb2;
+    --still-line: rgb(255 255 255 / 8%);
+    --still-hover: rgb(255 255 255 / 7%);
+    --still-blue: #0a84ff;
+    --still-shadow: inset 0 1px 0 rgb(255 255 255 / 4%), 0 1px 2px rgb(0 0 0 / 6%), 0 4px 12px rgb(0 0 0 / 4%);
+  }
+}
+#navigator-toolbox { border: 0 !important; background: var(--still-canvas) !important; }
+#nav-bar { padding: 4px 8px !important; min-height: 48px !important; box-sizing: border-box; background: var(--still-material) !important; backdrop-filter: blur(24px); box-shadow: none !important; border-bottom: 1px solid var(--still-line) !important; }
+#urlbar-container { margin-inline: 12px !important; }
+#urlbar-background { border-radius: 8px !important; border: 1px solid var(--still-line) !important; }
+#urlbar:not([breakout-extend]) #urlbar-background { box-shadow: none !important; }
+#urlbar[focused] #urlbar-background { outline: 2px solid var(--still-blue) !important; outline-offset: 1px; }
+#urlbar-input { font-size: 13px !important; }
+.urlbarView { border-color: var(--still-line) !important; }
+.toolbarbutton-1 { --toolbarbutton-border-radius: 8px !important; }
+#PersonalToolbar, #browser { background: var(--still-canvas) !important; }
+#tabbrowser-tabbox { margin: 8px !important; border-radius: 12px !important; overflow: hidden !important; outline: 1px solid var(--still-line); box-shadow: none; }
+#sidebar-main { background: var(--still-material) !important; backdrop-filter: blur(24px); min-width: 224px !important; margin: 0 !important; padding-top: 8px !important; border-inline-end: 1px solid var(--still-line) !important; }
+#sidebar-main:not([hidden="true"]) { display: flex !important; flex-direction: column !important; }
+#sidebar-main > sidebar-main { flex: 1 !important; min-height: 0 !important; width: 100% !important; }
+#sidebar-main:not([sidebar-launcher-expanded]) { min-width: 54px !important; }
+#sidebar-main[sidebar-launcher-expanded] { width: 224px !important; }
+#sidebar-main .tabbrowser-tab { margin-inline: 10px !important; padding-block: 3px !important; }
+#sidebar-main .tab-background { border-radius: 10px !important; box-shadow: none !important; }
+#sidebar-main .tab-background[selected] { background: var(--still-surface) !important; outline: 1px solid var(--still-line) !important; box-shadow: none !important; }
+#sidebar-main .tab-label { font-size: 13px !important; }
+#sidebar-main .tabbrowser-tab[selected] .tab-label { font-weight: 600 !important; }
+#sidebar-main .tab-content { padding-inline: 12px !important; }
+#sidebar-main .tab-close-button { border-radius: 6px !important; }
+#sidebar-main .tabbrowser-tab:not([selected]):not(:hover):not(:focus-within) .tab-close-button { visibility: hidden !important; }
+#sidebar-main #tabs-newtab-button { border-radius: 10px !important; margin: 6px 10px !important; }
+#sidebar-box { background: var(--still-canvas) !important; margin: 8px 10px 10px 0 !important; border: 1px solid var(--still-line) !important; border-radius: 12px !important; }
+#sidebar-splitter { opacity: .2; }
+panel .panel-arrowcontent, .panel-subview-body { border-radius: 12px !important; }
+@media (prefers-reduced-motion: no-preference) {
+  .tab-background { transition: background-color 120ms ease !important; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  #nav-bar, #sidebar-main { background: var(--still-canvas) !important; backdrop-filter: none; }
+}
+@media (prefers-contrast: more), (forced-colors: active) {
+  :root { --still-line: currentColor; --still-label: CanvasText; --still-surface: Canvas; --still-canvas: Canvas; --still-material: Canvas; --still-blue: Highlight; }
+}
+
+/* Avoid an extra toolbar row while preserving Firefox's native tab controller. */
+#sidebar-main[hidden="true"] { display: none !important; }
+#sidebar-main .tab-background { border-radius: 8px !important; }
+#sidebar-main .tab-background[selected] { outline: none !important; }
+

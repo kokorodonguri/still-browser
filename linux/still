@@ -1,0 +1,209 @@
+#!/usr/bin/env python3
+"""Launch Still's dedicated Firefox profile without modifying other profiles."""
+import argparse
+import json
+import os
+import re
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import newtab_image
+from profile_migration import stage_sessions
+import updater
+
+ROOT = Path(__file__).resolve().parent
+# Firefox's own import wizard: Chrome, Chromium, Brave, Opera, Vivaldi, other
+# Firefox profiles, a passwords file (CSV) or a bookmarks file (HTML). The tab
+# closes once the import is done.
+IMPORT_PAGE = "about:preferences#general-migrate-autoclose"
+
+
+def write_atomic(destination: Path, content: bytes):
+    if destination.exists() and destination.read_bytes() == content:
+        return
+    with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as temporary:
+        temporary.write(content)
+        temporary_path = Path(temporary.name)
+    try:
+        temporary_path.replace(destination)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+def profile_running(profile: Path) -> bool:
+    target = str(profile.resolve())
+    for command in Path("/proc").glob("[0-9]*/cmdline"):
+        try:
+            parts = command.read_bytes().decode(errors="replace").split("\0")
+        except OSError:
+            continue
+        if not parts or "firefox" not in Path(parts[0]).name.lower():
+            continue
+        for index, value in enumerate(parts[:-1]):
+            if value in ("-profile", "--profile") and str(Path(parts[index + 1]).resolve()) == target:
+                return True
+    return False
+
+
+def ensure_profile_stopped(profile: Path):
+    # Firefox owns prefs.js while running. Never migrate or copy a live profile.
+    if profile_running(profile):
+        raise SystemExit("Stillを終了してから再実行してください。実行中のプロファイルは更新できません。")
+
+
+def write_user_content(profile: Path):
+    # Still's stylesheet plus the new tab picture, if one is chosen.
+    style = (ROOT / "profile" / "chrome" / "userContent.css").read_text() + newtab_image.stylesheet(profile)
+    write_atomic(profile / "chrome" / "userContent.css", style.encode())
+
+
+def prepare_profile(profile: Path):
+    ensure_profile_stopped(profile)
+    profile.mkdir(parents=True, exist_ok=True)
+    chrome = profile / "chrome"
+    chrome.mkdir(exist_ok=True)
+    for name in ("userChrome.css", "still.svg"):
+        write_atomic(chrome / name, (ROOT / "profile" / "chrome" / name).read_bytes())
+    write_user_content(profile)
+    first_run = not (profile / "prefs.js").exists()
+    if first_run:
+        preferences = (ROOT / "profile" / "user.js").read_text()
+    else:
+        # Seed public Firefox settings once. Preserve subsequent sidebar,
+        # download and startup choices; keep only the stylesheet contract.
+        preferences = ('// Still interface requirements; other preferences are saved by Firefox.\n'
+                       'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);\n'
+                       'user_pref("browser.newtabpage.activity-stream.improvesearch.handoffToAwesomebar", false);\n')
+    saved = (profile / "prefs.js").read_text() if not first_run else ""
+    # Repeat until Firefox itself persists the revision. prepare-only must not
+    # consume the migration or reset choices after the first successful launch.
+    migrated = re.search(r'user_pref\("still.uiRevision",\s*2\);', saved) is not None
+    if not migrated:
+        try:
+            staged = stage_sessions(profile)
+        except (ValueError, TypeError, AttributeError) as error:
+            raise SystemExit("保存タブのUI設定を更新できません。元のデータは保持されています: " + str(error))
+        for path, original, updated in staged:
+            backup = path.with_name(path.name + ".before-minimal")
+            if not backup.exists():
+                write_atomic(backup, original)
+            write_atomic(path, updated)
+        toolbar = {"placements": {"nav-bar": [
+            "sidebar-button", "back-button", "forward-button", "stop-reload-button",
+            "urlbar-container", "downloads-button", "new-tab-button", "unified-extensions-button"
+        ]}, "currentVersion": 23}
+        migration = {
+            "sidebar.visibility": "hide-sidebar",
+            "sidebar.backupState": json.dumps({"launcherVisible": False, "launcherExpanded": True, "panelOpen": False}),
+            "sidebar.verticalTabs": True,
+            "sidebar.main.tools": "",
+            "browser.uiCustomization.state": json.dumps(toolbar),
+            "browser.newtabpage.activity-stream.showSearch": False,
+            "browser.newtabpage.activity-stream.feeds.topsites": False,
+            "still.uiRevision": 2,
+        }
+        for key, value in migration.items():
+            preferences += f"\nuser_pref({json.dumps(key)}, {json.dumps(value)});\n"
+    # Earlier Still profiles turned search suggestions off. Turn them on
+    # once; after Firefox saves the revision, the user's choice stands.
+    if not first_run and re.search(r'user_pref\("still.suggestRevision",\s*1\);', saved) is None:
+        for key, value in {"browser.urlbar.suggest.searches": True, "browser.search.suggest.enabled": True, "still.suggestRevision": 1}.items():
+            preferences += f"\nuser_pref({json.dumps(key)}, {json.dumps(value)});\n"
+    write_atomic(profile / "user.js", preferences.encode())
+    # Only seed the layout once. Subsequent window sizes and toolbar choices persist.
+    layout = profile / "xulstore.json"
+    if not layout.exists():
+        write_atomic(layout, json.dumps({"chrome://browser/content/browser.xhtml": {
+            "main-window": {"width": "1440", "height": "900", "sizemode": "normal"},
+            "sidebar-box": {"width": "280"}
+        }}).encode())
+
+
+def report(text: str):
+    print(text)
+    if not sys.stdout.isatty():
+        # Started from the desktop menu, where nothing shows the output.
+        updater.notify("Still", text)
+
+
+def set_newtab_image(profile: Path, source: Path | None) -> int:
+    """Stores or (with no source) removes the new tab picture, then reports."""
+    try:
+        if source is None:
+            newtab_image.remove_others(profile)
+        else:
+            newtab_image.store(profile, source)
+        (profile / "chrome").mkdir(parents=True, exist_ok=True)
+        write_user_content(profile)
+    except newtab_image.ImageError as error:
+        report(str(error))
+        return 1
+    except OSError:
+        report("プロファイルを保存できません。指定フォルダーの書き込み権限と空き容量を確認してください。")
+        return 1
+    done = "新しいタブの画像を設定しました。" if source else "新しいタブの画像を外しました。"
+    report(done + ("Stillを再起動すると反映されます。" if profile_running(profile) else ""))
+    return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Still — Firefox with a quieter workspace")
+    parser.add_argument("--profile", type=Path, help="Use an isolated profile directory")
+    parser.add_argument("--prepare-only", action="store_true", help="Prepare the profile without starting Firefox")
+    parser.add_argument("--update", action="store_true", help="Check for a new version of Still and install it")
+    parser.add_argument("--newtab-image", nargs="?", const="", metavar="PATH",
+                        help="Show a picture behind new tabs; without PATH, choose one in a file dialog")
+    parser.add_argument("--remove-newtab-image", action="store_true", help="Show new tabs without a picture again")
+    parser.add_argument("--import", dest="import_data", action="store_true",
+                        help="Import bookmarks, history, passwords and cookies from another browser")
+    parser.add_argument("urls", nargs="*")
+    args = parser.parse_args()
+    if args.update:
+        updater.main_with([])
+    # A downloaded update is swapped in while Firefox is closed; then the new launcher starts over.
+    try:
+        applied = updater.apply_staged()
+    except OSError:
+        if not (ROOT / "still").is_file() or not (ROOT / "runtime/firefox/firefox").is_file():
+            sys.exit(f"アップデートから復旧できませんでした。{updater.PREVIOUS} のバックアップを確認してください。")
+        applied = False
+    if applied:
+        os.execv(sys.executable, [sys.executable, str(ROOT / "still"), *sys.argv[1:]])
+    if any(url.startswith("-") for url in args.urls):
+        parser.error("Expected URLs, not Firefox command line options")
+    profile = (args.profile or Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "still-browser").resolve()
+    if args.remove_newtab_image:
+        sys.exit(set_newtab_image(profile, None))
+    if args.newtab_image is not None:
+        try:
+            source = Path(args.newtab_image).expanduser() if args.newtab_image else newtab_image.choose_file()
+        except newtab_image.ImageError as error:
+            report(str(error))
+            sys.exit(1)
+        sys.exit(0 if source is None else set_newtab_image(profile, source))
+    if args.import_data:
+        if profile_running(profile):
+            report("Stillのアドレス欄に about:preferences#general-migrate と入力すると、インポートの画面が開きます。")
+            sys.exit(1)
+        args.urls = [IMPORT_PAGE, *args.urls]
+    try:
+        prepare_profile(profile)
+    except OSError:
+        sys.exit("プロファイルを保存できません。指定フォルダーの書き込み権限と空き容量を確認してください。")
+    if args.prepare_only:
+        print(profile)
+        return
+    binary = ROOT / "runtime" / "firefox" / "firefox"
+    if not binary.exists():
+        sys.exit("Firefox is not installed. Run: python3 linux/install.py")
+    if updater.release_version(ROOT) is not None:
+        # Runs on after Firefox replaces this process; it notifies only when there is a new version.
+        subprocess.Popen([sys.executable, str(ROOT / "updater.py"), "--background"], start_new_session=True,
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    os.environ["MOZ_APP_REMOTINGNAME"] = "still-browser"
+    os.execv(binary, [str(binary), "--no-remote", "--profile", str(profile), *args.urls])
+
+
+if __name__ == "__main__":
+    main()

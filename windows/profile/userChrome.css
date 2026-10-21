@@ -1,0 +1,317 @@
+/* Still for Windows: the earlier Still layout around Firefox's own controls.
+   A 40px toolbar with a centred, filled address field; a 200px rail with
+   Tabs / Bookmarks / History / Downloads (added by still.cfg) above the tab
+   list; and the page as an inset card. Colours and radii come from
+   tokens.css (flat gunmetal / steel). Shared Linux styling, then tokens.css,
+   precede this sheet. Keep both sidebar IDs: Firefox 153 renamed
+   #sidebar-main to #sidebar-container. */
+:root {
+  --toolbarbutton-border-radius: var(--still-control-radius) !important;
+  --toolbarbutton-hover-background: var(--still-hover) !important;
+  --toolbarbutton-active-background: var(--still-pressed) !important;
+  --tab-min-height: 38px !important;
+  --tab-border-radius: var(--still-control-radius) !important;
+  --color-accent-primary-hover: var(--still-blue) !important;
+  --color-accent-primary-active: var(--still-blue) !important;
+  --button-text-color-primary: var(--still-on-accent) !important;
+  --color-accent-primary: var(--still-action) !important;
+  --focus-outline-color: var(--still-focus) !important;
+  background: var(--still-frame-background) !important;
+  font-family: var(--still-font-text) !important;
+}
+
+/* Firefox paints its own colour on the window body, over :root. */
+body { background: var(--still-frame-background) !important; }
+
+/* One compact toolbar; window controls and site security stay native. */
+#navigator-toolbox, #PersonalToolbar, #browser {
+  background: transparent !important;
+}
+#nav-bar {
+  min-height: 40px !important;
+  padding: 0 4px 0 8px !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  border-bottom: 0 !important;
+}
+#nav-bar .toolbarbutton-1 {
+  --toolbarbutton-outer-padding: 1px !important;
+  --toolbarbutton-inner-padding: 6px !important;
+  color: var(--still-secondary) !important;
+}
+#nav-bar .toolbarbutton-1:not([disabled]):hover,
+#nav-bar .toolbarbutton-1[checked],
+#nav-bar .toolbarbutton-1[open] { color: var(--still-label) !important; }
+#nav-bar .toolbarbutton-1[disabled] { color: var(--still-tertiary) !important; }
+/* The sidebar button sits on a filled square, as in Still. */
+#sidebar-button > :is(.toolbarbutton-icon, .toolbarbutton-badge-stack) {
+  background-color: var(--still-field) !important;
+  color: var(--still-label) !important;
+}
+#sidebar-button { margin-inline-end: 2px !important; }
+#stop-reload-button { margin-inline-end: 8px !important; }
+
+/* A filled, borderless address field with the address centred while it is
+   not being edited. Firefox owns completion, permissions and identity UI. */
+/* The address field follows the navigation buttons, without springs. */
+#nav-bar toolbarspring:has(+ #urlbar-container),
+#urlbar-container + toolbarspring { display: none !important; }
+#urlbar-container {
+  max-width: none !important;
+  min-width: 0 !important;
+  margin-inline: 0 6px !important;
+}
+#urlbar { --urlbar-min-height: 28px !important; }
+#urlbar-background, #urlbar .urlbar-background {
+  background: var(--still-field) !important;
+  border: 0 !important;
+  border-radius: var(--still-control-radius) !important;
+  box-shadow: none !important;
+}
+#urlbar:not([focused]):hover :is(#urlbar-background, .urlbar-background) {
+  background: var(--still-field-hover) !important;
+}
+#urlbar[focused] :is(#urlbar-background, .urlbar-background),
+#urlbar[breakout-extend] :is(#urlbar-background, .urlbar-background) {
+  background: var(--still-surface) !important;
+  outline: 2px solid var(--still-focus) !important;
+  outline-offset: -2px !important;
+  box-shadow: var(--still-card-shadow) !important;
+}
+#urlbar-input { font-size: 13px !important; }
+#urlbar:not([focused]) #urlbar-input { text-align: center !important; }
+.urlbarView { color: var(--still-label) !important; }
+.urlbarView-row-inner { border-radius: var(--still-control-radius) !important; }
+#urlbar-results { padding: 6px !important; }
+
+/* The page is an inset card beside the rail. */
+#tabbrowser-tabbox {
+  margin: 0 4px 4px 0 !important;
+  border-radius: var(--still-page-radius) !important;
+  outline: 1px solid var(--still-line) !important;
+  outline-offset: -1px !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+#sidebar-box {
+  margin: 0 4px 4px 0 !important;
+  border: 0 !important;
+  border-radius: var(--still-page-radius) !important;
+  outline: 1px solid var(--still-line) !important;
+  outline-offset: -1px !important;
+  background: var(--still-surface) !important;
+}
+#sidebar-splitter { opacity: 0 !important; }
+
+/* The rail. Firefox owns its width (and stores drag resizing inline in 153);
+   only the older container needs !important over the Linux baseline. */
+:is(#sidebar-main, #sidebar-container) {
+  flex-direction: column !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  border-inline-end: 0 !important;
+  padding: 2px 0 4px !important;
+  margin: 0 !important;
+}
+#sidebar-container[sidebar-launcher-expanded] {
+  width: 200px;
+  min-width: 0 !important;
+}
+#sidebar-main[sidebar-launcher-expanded] {
+  width: 200px !important;
+  min-width: 160px !important;
+}
+:is(#sidebar-main, #sidebar-container):not([sidebar-launcher-expanded]) {
+  width: 56px !important;
+  min-width: 56px !important;
+}
+#sidebar-main[hidden="true"], #sidebar-container[hidden] { display: none !important; }
+:is(#sidebar-main, #sidebar-container) > sidebar-main {
+  flex: 1 !important;
+  min-height: 0 !important;
+  width: 100% !important;
+}
+
+/* Tabs / Bookmarks / History / Downloads, then the "Tabs" heading (still.cfg). */
+#still-rail-header {
+  flex: none;
+  padding: 0 8px;
+}
+:is(#sidebar-main, #sidebar-container):not([sidebar-launcher-expanded]) > #still-rail-header { display: none; }
+#still-segments {
+  padding: 2px;
+  border-radius: var(--still-control-radius);
+  background: var(--still-field);
+}
+.still-segment {
+  appearance: none !important;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 26px;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: var(--still-control-radius);
+  color: var(--still-secondary);
+  justify-content: center;
+  align-items: center;
+}
+.still-segment > .toolbarbutton-icon {
+  width: 14px;
+  height: 14px;
+  background-color: currentColor;
+  mask: var(--still-segment-icon) center / 14px no-repeat;
+}
+#still-segment-tabs {
+  --still-segment-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2.5' y='3' width='11' height='10' rx='2'/%3E%3Cpath d='M2.5 6h11'/%3E%3C/svg%3E");
+}
+#still-segment-bookmarks {
+  --still-segment-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 2.5h7v11L8 11l-3.5 2.5z'/%3E%3C/svg%3E");
+}
+#still-segment-history {
+  --still-segment-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='8' cy='8' r='5.5'/%3E%3Cpath d='M8 5v3l2 1.5'/%3E%3C/svg%3E");
+}
+#still-segment-downloads {
+  --still-segment-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2.5v8M4.8 7.5 8 10.7l3.2-3.2M3 13.5h10'/%3E%3C/svg%3E");
+}
+.still-segment > .toolbarbutton-text { display: none; }
+.still-segment:hover { color: var(--still-label); }
+.still-segment[selected] {
+  background: var(--still-surface);
+  color: var(--still-label);
+  box-shadow: var(--still-card-shadow);
+}
+.still-segment:focus-visible {
+  outline: 2px solid var(--still-focus);
+  outline-offset: -2px;
+}
+#still-rail-heading {
+  margin: 14px 8px 4px !important;
+  color: var(--still-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Settings stays below the scrolling tab list, including in the narrow rail. */
+#still-rail-footer {
+  flex: none;
+  padding: 4px 8px 0;
+}
+#still-settings-button {
+  appearance: none !important;
+  min-height: 32px;
+  margin: 0 !important;
+  padding: 6px 8px !important;
+  border-radius: var(--still-control-radius);
+  color: var(--still-secondary);
+  list-style-image: url("chrome://global/skin/icons/settings.svg");
+  -moz-context-properties: fill;
+  fill: currentColor;
+  justify-content: flex-start;
+}
+#still-settings-button > .toolbarbutton-icon { width: 16px; height: 16px; }
+#still-settings-button > .toolbarbutton-text { margin-inline-start: 8px; text-align: start; }
+#still-settings-button:hover { color: var(--still-label); background: var(--still-hover); }
+#still-settings-button:focus-visible { outline: 2px solid var(--still-focus); outline-offset: -2px; }
+:is(#sidebar-main, #sidebar-container):not([sidebar-launcher-expanded]) #still-settings-button {
+  justify-content: center;
+}
+:is(#sidebar-main, #sidebar-container):not([sidebar-launcher-expanded]) #still-settings-button > .toolbarbutton-text {
+  display: none;
+}
+
+/* Tab rows: the site's icon beside its title and host. Firefox keeps the
+   native loading, audio and collapsed-rail indicators. */
+:is(#sidebar-main, #sidebar-container) .tabbrowser-tab {
+  margin-inline: 8px !important;
+  padding-block: 1px !important;
+  padding-inline: 0 !important;
+}
+:is(#sidebar-main, #sidebar-container) .tab-background {
+  margin-inline: 0 !important;
+  border-radius: var(--still-control-radius) !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+:is(#sidebar-main, #sidebar-container) .tabbrowser-tab:hover > .tab-stack > .tab-background:not([selected]) {
+  background: var(--still-hover) !important;
+}
+:is(#sidebar-main, #sidebar-container) .tab-background[selected] {
+  background: var(--still-surface) !important;
+  box-shadow: var(--still-card-shadow) !important;
+}
+:is(#sidebar-main, #sidebar-container) .tab-label { font-size: 13px !important; color: var(--still-label) !important; }
+:is(#sidebar-main, #sidebar-container) .tabbrowser-tab[selected] .tab-label { font-weight: 600 !important; }
+:is(#sidebar-main, #sidebar-container) .tab-content { padding-inline: 8px 4px !important; }
+:is(#sidebar-main, #sidebar-container)[sidebar-launcher-expanded] .tab-label-container[still-host]::after {
+  content: attr(still-host);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--still-secondary);
+  font-size: 11px;
+  line-height: 1.3;
+}
+:is(#sidebar-main, #sidebar-container) .tab-close-button {
+  width: 22px !important;
+  height: 22px !important;
+  padding: 5px !important;
+  border-radius: var(--still-control-radius) !important;
+}
+:is(#sidebar-main, #sidebar-container) .tabbrowser-tab:not([selected]):not(:hover):not(:focus-within) .tab-close-button {
+  visibility: hidden !important;
+}
+:is(#sidebar-main, #sidebar-container) .tab-close-button:focus-visible {
+  outline: 2px solid var(--still-focus) !important;
+  outline-offset: -2px !important;
+}
+:is(#sidebar-main, #sidebar-container) :is(#tabs-newtab-button, #vertical-tabs-newtab-button) {
+  color: var(--still-secondary) !important;
+  margin: 2px 8px !important;
+  padding-inline: 2px !important;
+  min-height: 30px !important;
+  border: 0 !important;
+  border-radius: var(--still-control-radius) !important;
+  background: transparent !important;
+  font-size: 13px !important;
+}
+:is(#sidebar-main, #sidebar-container) :is(#tabs-newtab-button, #vertical-tabs-newtab-button):hover {
+  color: var(--still-label) !important;
+  background: var(--still-hover) !important;
+}
+
+#PanelUI-menu-button {
+  list-style-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='context-stroke'%3E%3Ccircle cx='5' cy='12' r='1.7'/%3E%3Ccircle cx='12' cy='12' r='1.7'/%3E%3Ccircle cx='19' cy='12' r='1.7'/%3E%3C/svg%3E") !important;
+}
+#PanelUI-menu-button .toolbarbutton-icon {
+  -moz-context-properties: fill, stroke !important;
+  stroke: currentColor !important;
+}
+panel { --panel-border-radius: var(--still-page-radius) !important; }
+:is(#sidebar-main, #sidebar-container) .tabbrowser-tab:focus-visible .tab-background,
+#nav-bar .toolbarbutton-1:focus-visible {
+  outline: 2px solid var(--still-focus) !important;
+  outline-offset: -2px !important;
+}
+
+/* Narrow windows keep room for both the tabs and the page. */
+@media (max-width: 800px) {
+  :is(#sidebar-main, #sidebar-container)[sidebar-launcher-expanded] {
+    max-width: 38vw !important;
+  }
+  #sidebar-main[sidebar-launcher-expanded] { min-width: 150px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(#sidebar-main, #sidebar-container) .tab-background { transition: none !important; }
+}
+@media (prefers-contrast: more), (forced-colors: active) {
+  #tabbrowser-tabbox,
+  #urlbar-background,
+  #still-segments,
+  .still-segment[selected],
+  :is(#sidebar-main, #sidebar-container) .tab-background[selected] {
+    outline: 2px solid var(--still-blue) !important;
+    outline-offset: -2px !important;
+    box-shadow: none !important;
+  }
+}

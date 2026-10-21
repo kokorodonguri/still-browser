@@ -1,0 +1,24 @@
+/* Still's palette extends to built-in pages, without styling ordinary sites
+   or the about:blank and about:srcdoc frames inside them. */
+@-moz-document regexp("about:(?!blank|srcdoc)[^#?]*([#?].*)?") {
+  :root {
+    --color-accent-primary: var(--still-action) !important;
+    --color-accent-primary-hover: var(--still-action) !important;
+    --color-accent-primary-active: var(--still-action) !important;
+    --button-text-color-primary: var(--still-on-accent) !important;
+    --in-content-primary-button-background: var(--still-action) !important;
+    --in-content-primary-button-background-hover: var(--still-action) !important;
+    --in-content-primary-button-background-active: var(--still-action) !important;
+    --in-content-primary-button-text-color: var(--still-on-accent) !important;
+    --in-content-primary-button-text-color-hover: var(--still-on-accent) !important;
+    --in-content-primary-button-text-color-active: var(--still-on-accent) !important;
+    --focus-outline-color: var(--still-focus) !important;
+  }
+}
+/* Restored native home tabs keep a quiet Still surface. */
+@-moz-document url("about:home"), url("about:newtab") {
+  :root, body { background: var(--still-canvas) !important; }
+}
+@-moz-document url("about:home"), url("about:newtab") {
+  body::before { content: "Still"; position: fixed; inset: 40% 0 auto; text-align: center; color: var(--still-label); font: 600 56px/1.07 var(--still-font-display); letter-spacing: -.02em; pointer-events: none; }
+}

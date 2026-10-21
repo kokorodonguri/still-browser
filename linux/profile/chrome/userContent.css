@@ -1,0 +1,29 @@
+/* Use Firefox's own theme tokens so native forms keep their states and layout. */
+@-moz-document url-prefix("about:"), url-prefix("chrome://browser/content/sidebar/"), url-prefix("chrome://browser/content/places/") {
+  :root {
+    --color-accent-primary: #007aff !important;
+    --color-accent-primary-hover: #0066d6 !important;
+    --color-accent-primary-active: #0055b3 !important;
+    --button-text-color-primary: #ffffff !important;
+    --in-content-primary-button-background: #007aff !important;
+    --in-content-primary-button-background-hover: #0066d6 !important;
+    --in-content-primary-button-background-active: #0055b3 !important;
+    --in-content-primary-button-text-color: #ffffff !important;
+    --in-content-primary-button-text-color-hover: #ffffff !important;
+    --in-content-primary-button-text-color-active: #ffffff !important;
+    --focus-outline-color: #007aff !important;
+  }
+}
+/* Home and new tab are intentionally empty; search lives in the address bar.
+   display:none also removes hidden controls from keyboard and accessibility trees. */
+@-moz-document url("about:home"), url("about:newtab"), url("about:blank") {
+  :root { color-scheme: light dark !important; background: #f5f5f7 !important; }
+  body { background: #f5f5f7 !important; }
+  #root, .outer-wrapper, .personalizeButtonWrapper { display: none !important; }
+  @media (prefers-color-scheme: dark) {
+    :root, body { background: #1c1c1e !important; }
+  }
+  @media (forced-colors: active) {
+    :root, body { background: Canvas !important; }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Still",
+  "version": "0.4.0",
+  "identifier": "app.still.browser",
+  "build": {
+    "frontendDist": "../ui/dist",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [],
+    "withGlobalTauri": false,
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "publisher": "Still",
+    "shortDescription": "A quiet, minimal browser",
+    "longDescription": "Still is a minimal browser whose interface is drawn entirely in HTML/CSS, with pages rendered by WebView2.",
+    "copyright": "© 2026 Still",
+    "category": "Utility",
+    "icon": [
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "languages": [
+          "English",
+          "Japanese"
+        ],
+        "displayLanguageSelector": false
+      }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJDREFENjI0OThBMDkzQkUKUldTK2s2Q1lKTmJhdktSQVdtTTRsQjJtNDRVdjFqemNwRDVVV0ZyZGJtU1ZIN1V1YmJaQXFscHkK",
+      "endpoints": [
+        "https://still.dongurihub.com/update/windows.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

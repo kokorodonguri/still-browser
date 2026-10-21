@@ -1,0 +1,33 @@
+name: current-browser
+
+on:
+  push:
+    paths: ["linux/**", "windows/**", "site/**", "actors/**", "desktop/src-tauri/icons/**", ".github/workflows/current-browser.yml"]
+  pull_request:
+    paths: ["linux/**", "windows/**", "site/**", "actors/**", "desktop/src-tauri/icons/**", ".github/workflows/current-browser.yml"]
+
+jobs:
+  portable-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Linux profile and update tests
+        run: python3 -m unittest discover -s linux/tests -p 'test_*.py' -v
+      - name: Release packaging and publication tests
+        run: python3 -m unittest discover -s site/tests -v
+      - name: Windows packaging tests
+        run: python3 -m unittest discover -s windows/tests -v
+      - name: Firefox customization tests
+        run: node --test windows/tests/*.test.cjs
+
+  windows-launcher:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Launcher domain tests
+        run: cargo test --locked --manifest-path windows/launcher/Cargo.toml

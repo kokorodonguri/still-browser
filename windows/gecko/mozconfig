@@ -1,0 +1,25 @@
+# Still's Firefox for Windows x64, cross-compiled from Linux.
+# build.py adds the object directory and, when given, the Safe Browsing key.
+
+ac_add_options --target=x86_64-pc-windows-msvc
+. $topsrcdir/build/mozconfig.clang-cl
+# mach downloads clang, the Windows SDK, Rust and the other toolchains.
+ac_add_options --enable-bootstrap
+
+ac_add_options --enable-release
+ac_add_options --disable-debug
+ac_add_options --disable-tests
+
+# Still updates this Firefox with its own installer. Mozilla's updates would
+# replace the modified build with theirs, so its update programs are left out.
+ac_add_options --disable-updater
+ac_add_options --disable-maintenance-service
+ac_add_options --disable-update-agent
+ac_add_options --disable-default-browser-agent
+ac_add_options --disable-crashreporter
+
+# A modified build may not carry the Firefox name and logo (build.py writes this).
+ac_add_options --with-branding=browser/branding/still
+
+# 7 GB of RAM: few parallel jobs, no LTO or PGO.
+mk_add_options MOZ_PARALLEL_BUILD=6

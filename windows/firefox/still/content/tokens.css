@@ -1,0 +1,79 @@
+/* Still for Windows: flat gunmetal (dark) and steel (light). Solid blue-grey
+   surfaces, hairlines instead of shadows, small radii and a steel accent.
+   Shared by browser chrome (embedded by the launcher) and Still settings. */
+:root {
+  color-scheme: light dark;
+  --still-canvas: #e3e6e9;
+  --still-surface: #f3f5f6;
+  --still-label: #1c2024;
+  --still-secondary: #545b62;
+  --still-tertiary: #6c737a;
+  --still-line: #c3c8cd;
+  --still-control-line: #7a8188;
+  --still-raised: #eceff1;
+  --still-hover: #d8dce0;
+  --still-pressed: #cdd2d7;
+  --still-field: #d6dade;
+  --still-field-hover: #cdd2d7;
+  --still-blue: #3e5366;
+  --still-action: #3e5366;
+  --still-focus: #3e5366;
+  --still-on-accent: #ffffff;
+  --still-shadow: none;
+  /* Raised controls are marked by a hairline, not a shadow. */
+  --still-card-shadow: 0 0 0 1px var(--still-line);
+  --still-frame-background: var(--still-canvas);
+  --still-page-radius: 4px;
+  --still-control-radius: 4px;
+  --still-button-radius: 4px;
+  --still-frame-gap: 8px;
+  --still-font-display: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", "Noto Sans", sans-serif;
+  --still-font-text: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", "Noto Sans", sans-serif;
+  font-family: var(--still-font-text);
+  letter-spacing: -.016em;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --still-canvas: #24282c;
+    --still-surface: #2e3337;
+    --still-label: #e6e9ec;
+    --still-secondary: #a3aab1;
+    --still-tertiary: #7d858d;
+    --still-line: #3d4349;
+    --still-control-line: #7d858d;
+    --still-raised: #2a2e32;
+    --still-hover: #363b40;
+    --still-pressed: #40464c;
+    --still-field: #33383d;
+    --still-field-hover: #3a4045;
+    --still-blue: #9fb2c3;
+    --still-action: #4a5d6e;
+    --still-focus: #9fb2c3;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root { --still-raised: var(--still-surface); --still-frame-background: var(--still-canvas); }
+}
+@media (prefers-contrast: more), (forced-colors: active) {
+  :root {
+    --still-canvas: Canvas !important;
+    --still-surface: Canvas !important;
+    --still-label: CanvasText !important;
+    --still-secondary: CanvasText !important;
+    --still-tertiary: GrayText !important;
+    --still-line: ButtonBorder !important;
+    --still-control-line: ButtonBorder !important;
+    --still-raised: Canvas !important;
+    --still-hover: Canvas !important;
+    --still-pressed: Canvas !important;
+    --still-field: Canvas !important;
+    --still-field-hover: Canvas !important;
+    --still-blue: Highlight !important;
+    --still-action: Highlight !important;
+    --still-focus: Highlight !important;
+    --still-on-accent: HighlightText !important;
+    --still-shadow: none !important;
+    --still-card-shadow: none !important;
+    --still-frame-background: Canvas !important;
+  }
+}

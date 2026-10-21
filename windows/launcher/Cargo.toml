@@ -1,0 +1,38 @@
+[package]
+name = "still-launcher"
+# The Still release version: the update check compares it with update/windows.json.
+version = "0.5.6"
+edition = "2021"
+description = "Starts Still's Firefox with its own profile"
+
+[[bin]]
+name = "still"
+path = "src/main.rs"
+
+[features]
+# Test hooks for the end-to-end harness (windows/e2e); never in release builds.
+# STILL_UPDATE_MANIFEST_URL / STILL_UPDATE_PUBLIC_KEY replace the manifest and
+# key, loopback http:// downloads are allowed, and STILL_E2E_LOG /
+# STILL_E2E_ANSWER replace the dialogs. See windows/README.md.
+e2e = []
+
+[dependencies]
+serde_json = "1"
+base64 = "0.22"
+minisign-verify = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+# Schannel (native-tls) instead of rustls: no ring C code, a smaller binary.
+ureq = { version = "3", default-features = false, features = ["native-tls-no-default"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Controls_Dialogs", "Win32_System_Threading", "Win32_System_Registry", "Win32_UI_Shell"] }
+
+[build-dependencies]
+# The icon; build.rs adds it only for Windows targets.
+embed-resource = "3"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

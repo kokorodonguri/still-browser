@@ -1,0 +1,116 @@
+diff --git a/browser/app/profile/firefox.js b/browser/app/profile/firefox.js
+index 838ce4c..75a8d03 100644
+--- a/browser/app/profile/firefox.js
++++ b/browser/app/profile/firefox.js
+@@ -1832,7 +1832,8 @@ pref("browser.partnerlink.attributionURL", "https://topsites.services.mozilla.co
+ pref("browser.partnerlink.campaign.topsites", "amzn_2020_a1");
+ 
+ // Activates preloading of the new tab url.
+-pref("browser.newtab.preload", true);
++// Still: its own new tab page is light; no hidden preloaded about:newtab.
++pref("browser.newtab.preload", false);
+ 
+ // Preonboarding is disabled by default on platforms other than Windows and
+ // macOS. For official Mozilla distributions (only for Linux), enabled at
+@@ -2224,7 +2225,8 @@ pref("sidebar.openTabsPanel.enabled", false);
+ 
+ pref("sidebar.notification.badge.aichat", false);
+ 
+-pref("browser.ml.chat.enabled", true);
++// Still: no AI chatbot in the sidebar.
++pref("browser.ml.chat.enabled", false);
+ pref("browser.ml.chat.hideLocalhost", true);
+ pref("browser.ml.chat.maxLength", 7000);
+ pref("browser.ml.chat.menu", true);
+@@ -2734,11 +2736,8 @@ pref("browser.esedbreader.loglevel", "Error");
+ 
+ pref("browser.laterrun.enabled", false);
+ 
+-#ifdef FUZZING_SNAPSHOT
++// Still: no idle content process waiting for the next tab.
+ pref("dom.ipc.processPrelaunch.enabled", false);
+-#else
+-pref("dom.ipc.processPrelaunch.enabled", true);
+-#endif
+ 
+ pref("browser.migrate.bookmarks-file.enabled", true);
+ pref("browser.migrate.brave.enabled", true);
+@@ -2865,7 +2864,8 @@ pref("network.trr_ui.fallback_was_checked", true);
+ // Normandy client preferences
+ pref("app.normandy.api_url", "https://normandy.cdn.mozilla.net/api/v1");
+ pref("app.normandy.dev_mode", false);
+-pref("app.normandy.enabled", true);
++// Still: no remote studies or pref experiments.
++pref("app.normandy.enabled", false);
+ pref("app.normandy.first_run", true);
+ pref("app.normandy.logging.level", 50); // Warn
+ pref("app.normandy.run_interval_seconds", 21600); // 6 hours
+diff --git a/modules/libpref/init/StaticPrefList.yaml b/modules/libpref/init/StaticPrefList.yaml
+index 1964b95..bdaff80 100644
+--- a/modules/libpref/init/StaticPrefList.yaml
++++ b/modules/libpref/init/StaticPrefList.yaml
+@@ -1167,7 +1167,8 @@
+ # -1 = determine dynamically, 0 = none, n = memory capacity in kilobytes.
+ - name: browser.cache.memory.capacity
+   type: RelaxedAtomicInt32
+-  value: -1
++  # Still: 32 MB instead of a size scaled to the computer's memory.
++  value: 32768
+   mirror: always
+ 
+ # When smartsizing is disabled we could potentially fill all disk space by
+@@ -1797,7 +1798,8 @@
+   # this value.
+ -   name: browser.low_commit_space_threshold_mb
+     type: RelaxedAtomicUint32
+-    value: 200
++    # Still: start unloading background tabs earlier than Firefox's 200 MB.
++    value: 1024
+     mirror: always
+ #endif
+ 
+@@ -8929,7 +8931,8 @@
+ # Maximum size for the surface cache, in kilobytes.
+ - name: image.mem.surfacecache.max_size_kb
+   type: uint32_t
+-  value: 2024 * 1024
++  # Still: decoded images up to 512 MB instead of about 2 GB.
++  value: 512 * 1024
+   mirror: once
+ 
+ # Minimum timeout for expiring unused images from the surface cache, in
+diff --git a/modules/libpref/init/all.js b/modules/libpref/init/all.js
+index f0f3449..cc473a1 100644
+--- a/modules/libpref/init/all.js
++++ b/modules/libpref/init/all.js
+@@ -163,7 +163,8 @@ pref("editor.htmleditor.inputevent.hack.no_dispatch_after_compositionend.addl",
+ 
+ // Fastback caching - if this pref is negative, then we calculate the number
+ // of content viewers to cache based on the amount of available memory.
+-pref("browser.sessionhistory.max_total_viewers", -1);
++// Still: at most 2 pages kept live for back/forward instead of up to 8.
++pref("browser.sessionhistory.max_total_viewers", 2);
+ 
+ // See http://whatwg.org/specs/web-apps/current-work/#ping
+ pref("browser.send_pings", false);
+@@ -1862,7 +1863,9 @@ pref("dom.global_stop_script", true);
+ 
+ // Enable multi by default.
+ #if !defined(MOZ_ASAN) && !defined(MOZ_TSAN)
+-  pref("dom.ipc.processCount", 8);
++  // Still: half of Firefox's 8 shared web content processes. Site isolation
++  // (Fission) is unchanged; this only limits how many are kept around.
++  pref("dom.ipc.processCount", 4);
+ #elif defined(FUZZING_SNAPSHOT)
+   pref("dom.ipc.processCount", 1);
+ #else
+@@ -3641,7 +3644,8 @@ pref("browser.ai.control.sidebarChatbot", "default");
+ pref("browser.ai.control.smartWindow", "default");
+ 
+ // Enable the experimental machine learning inference engine.
+-pref("browser.ml.enable", true);
++// Still: off; it loads models and a separate inference process.
++pref("browser.ml.enable", false);
+ // Set to "All" to see all logs, which are useful for debugging.
+ pref("browser.ml.logLevel", "Error");
+ // Model hub root URL used to download models.
