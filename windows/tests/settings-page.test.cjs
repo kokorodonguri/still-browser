@@ -155,6 +155,33 @@ async function loadPage(initialPrefs = {}, { launcher = "C:/Still/still.exe", fa
   return { element, groups, values, calls, errors, listeners, sections, links, viewport, feedback };
 }
 
+test("memory settings are shown only by engines providing the feature", async () => {
+  const stock = await loadPage();
+  assert.equal(stock.element("memory-settings").hidden, true);
+  const page = await loadPage({
+    "still.memory.autoUnload.available": true,
+    "still.memory.autoUnload.enabled": false,
+    "still.memory.autoUnload.inactiveMinutes": 15,
+  });
+  assert.equal(page.element("memory-settings").hidden, false);
+  assert.equal(page.element("auto-unload").checked, false);
+  assert.equal(page.element("unload-minutes").value, "15");
+  assert.equal(page.element("unload-minutes").disabled, true);
+  page.element("auto-unload").checked = true;
+  await page.element("auto-unload").send("change");
+  assert.equal(page.values.get("still.memory.autoUnload.enabled"), true);
+  assert.equal(page.element("unload-minutes").disabled, false);
+  for (const value of ["", "0", "1.5", "1441", "NaN"]) {
+    page.element("unload-minutes").value = value;
+    await page.element("unload-minutes").send("change");
+    assert.equal(page.values.get("still.memory.autoUnload.inactiveMinutes"), 15);
+  }
+  page.element("unload-minutes").value = "5";
+  await page.element("unload-minutes").send("change");
+  assert.equal(page.values.get("still.memory.autoUnload.inactiveMinutes"), 5);
+  assert.equal(page.calls.saved, 2);
+});
+
 test("initial controls reflect saved Firefox preferences and installed versions", async () => {
   const page = await loadPage({
     "browser.startup.page": 1,

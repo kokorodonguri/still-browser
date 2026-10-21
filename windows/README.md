@@ -70,13 +70,17 @@ python3 windows/package.py --arch x64 --firefox 153.5.0esr
 - Firefox は Mozilla の更新用パッケージ（`complete.mar`）から取り出します。`SHA256SUMS` と照合し、`windows/cache/` に置きます。
 - 版は `launcher/Cargo.toml` の `version` です。Linux 版と Android 版もこの版を使います。上げてから3つともビルドし、`python3 site/build.py` を実行します。
 
-### メモリ使用量を減らした Firefox（x64）
+### メモリ使用量を減らした Firefox（x64・ARM64）
 
 Mozilla の ESR ソースに `gecko/patches/` を当て、Linux から Windows 向けにクロスビルドします。
 
 ```sh
 python3 windows/gecko/build.py --firefox 153.5.0esr          # 最後に日本語版の zip のパスを出力
 python3 windows/package.py --arch x64 --firefox 153.5.0esr --gecko <出力された zip>
+
+# ARM64 は Safe Browsing の更新を維持するため API キーファイルが必須です。
+python3 windows/gecko/build.py --arch arm64 --firefox 153.5.0esr --safebrowsing-key /path/to/key
+python3 windows/package.py --arch arm64 --firefox 153.5.0esr --gecko <出力された ARM64 の zip>
 ```
 
 - ソースは `SHA256SUMS` と照合して `~/still-gecko/`（`STILL_GECKO_HOME` で変更可）に展開します。ツールチェーン（clang・Windows SDK・Rust）は mach が `~/still-gecko/mozbuild` に取得します。日本語は、Mozilla がその版に使った `firefox-l10n` のリビジョンから作り直します。
@@ -94,6 +98,26 @@ python3 windows/package.py --arch x64 --firefox 153.5.0esr --gecko <出力され
   - ブランディング：`build.py` が Mozilla の非公式ブランディングを複製し、名前とアイコンを Still にします。改変したビルドには Firefox の名前とロゴを使えないためです。
 - `--safebrowsing-key` に Google Safe Browsing の API キーのファイルを渡さないと、フィッシング・マルウェアのリストが更新されません（Mozilla の公式ビルドだけが Mozilla のキーを持っています）。
 - 新しい ESR でパッチが当たらないときは、`build.py` がどのパッチかを示して止まります。
+
+ARM64 は専用のソースディレクトリと `obj-<ESR>-arm64` を使い、共通パッチに加えて `gecko/arm64/` のパッチとファイルを適用します。x64 の既定動作は変わりません。`--gecko` は `--arch all` と併用できません。zip の名前に依存せず、`firefox.exe` と `xul.dll` の PE ヘッダーが指定アーキテクチャと一致することを確認します。
+
+ARM64 では共有コンテンツプロセスとサイトごとのプロセス上限を各1、メモリキャッシュを16MiB、画像キャッシュ上限を128MiB、戻る・進む用の生存ページキャッシュを0にします。Fission・サンドボックス・危険サイト保護・動画・拡張機能・PDF・開発者ツールは維持します。サイト分離があるため、全体のプロセス数は1にはなりません。先読み・推測接続と不要な特権プロセスの常駐も止めます。既存プロファイルでユーザーが明示した値は保持します。
+
+一般設定の「使っていないタブのメモリを解放する」で自動解放を切り替え、保持時間を1〜1440分で変更できます。既定は5分で、30秒ごとに全ウィンドウから古い背景タブを最大1つ解放します。選択中・固定・読み込み中・プライベート・音声/動画再生・PiP・通話/共有・ダイアログ・離脱確認のあるタブを保持します。各フレームの入力変更、編集領域、閉じた Shadow DOM も調べます。編集領域のあるページと、一度でも入力変更を検出した文書は保守的に保持するため、送信後でも残ることがあります。状態を確認できない場合も保持します。セッション状態を保存し、保護条件を再確認した後、Firefox の通常のタブ解放処理を使います。再選択時に再読み込みします。
+
+設定は `still.memory.autoUnload.enabled`（既定 `true`）と `still.memory.autoUnload.inactiveMinutes`（既定 `5`）です。この機能を組み込んだエンジンだけに設定項目が表示されます。Gecko のブラウザテストを含むビルドは `build.py --enable-tests` で作り、対応する Windows テスト環境で `mach mochitest browser/components/tabbrowser/test/still/` を実行します。
+
+### メモリ削減の検証
+
+`.venv-linux/bin/python windows/tests/memory_browser.py` は、一時コピーした実 Firefox に同じモジュールを載せ、解放・再選択時の復元・通常の入力・別オリジンのフレーム・閉じた Shadow DOM・5分の境界・設定の無効化・状態保存中のタブ切り替えを検証します。Linux での機能確認であり、Windows ARM64 の削減量を表すものではありません。結果は `artifacts/windows-memory-checks/report.json` に出ます。
+
+ARM64 実機では現行版と独自版を同じ端末、同じプロファイルのコピー、同じ10ページで各3回測ります。各回でブラウザを終了してから開始し、「起動直後」「10タブ読み込み後」「背景化6分後」「背景タブを閉じた後」に次を実行します。拡張機能・ウィンドウサイズ・電源設定・ページの一覧を揃えてください。
+
+```powershell
+.\windows\tests\measure_memory.ps1 -InstallDir "$env:LOCALAPPDATA\Still" -Build custom-arm64 -Run 1 -Phase background6m -Output memory.csv
+```
+
+`-Build` で現行版/独自版、`-Run` で1〜3、`-Phase` で測定段階を区別します。全 Still プロセスの Private Bytes 合計を主指標とし、Working Set 合計とプロセス数も記録します。Working Set 合計は共有ページを重複計上するため、物理メモリの実使用量そのものではありません。通常の閲覧と編集保護を確認したうえで、背景化後の Private Bytes が現行版より繰り返し減ることを合格条件とします。実機未測定の削減率は表示しません。
 
 ## テスト
 

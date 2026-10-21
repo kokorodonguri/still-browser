@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import struct
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -27,8 +28,18 @@ NAME = "Still_0.9.0_x64-setup.exe"
 
 # Include the executable, archives and branding files that Still must leave
 # byte-for-byte intact. The real MAR extractor is replaced, as is downloading.
+def pe_fixture(machine=0x8664):
+    header = bytearray(70)
+    header[:2] = b"MZ"
+    struct.pack_into("<I", header, 0x3C, 64)
+    header[64:68] = b"PE\0\0"
+    struct.pack_into("<H", header, 68, machine)
+    return bytes(header)
+
+
 MOZILLA_FILES = {
-    "firefox.exe": b"Mozilla executable\0\xff",
+    "firefox.exe": pe_fixture(),
+    "xul.dll": pe_fixture(),
     "application.ini": b"[App]\nName=Firefox\nVersion=153.5.0\n",
     "omni.ja": b"Mozilla platform resources\0\xff",
     "browser/omni.ja": b"Mozilla branding and browser resources\0\xff",
@@ -48,6 +59,32 @@ def extract_fixture(_archive, destination):
 
 
 class StagingChecks(unittest.TestCase):
+    def test_custom_build_architecture_is_checked_from_both_pe_headers(self):
+        for platform, machine in (("win64", 0x8664), ("win64-aarch64", 0xAA64)):
+            for mismatch in (None, "firefox.exe", "xul.dll"):
+                with self.subTest(platform=platform, mismatch=mismatch), tempfile.TemporaryDirectory() as directory:
+                    archive = Path(directory) / "arbitrary-name.zip"
+                    with zipfile.ZipFile(archive, "w") as bundle:
+                        for name, content in MOZILLA_FILES.items():
+                            if name == "updater.exe":
+                                continue
+                            if name in ("firefox.exe", "xul.dll"):
+                                content = pe_fixture((0x8664 if machine == 0xAA64 else 0xAA64) if name == mismatch else machine)
+                            bundle.writestr(f"firefox/{name}", content)
+                    if mismatch:
+                        with self.assertRaisesRegex(SystemExit, "not a .* executable"):
+                            package.stage_firefox("153.5.0esr", platform, Path(directory) / "stage", archive)
+                    else:
+                        self.assertEqual(package.stage_firefox("153.5.0esr", platform, Path(directory) / "stage", archive), "153.5.0")
+
+    def test_invalid_pe_headers_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            exe = Path(directory) / "firefox.exe"
+            for header in (b"", b"MZ", bytes(100), pe_fixture()[:69]):
+                exe.write_bytes(header)
+                with self.assertRaises(SystemExit):
+                    package.check_machine(exe, "win64-aarch64")
+
     def test_adds_still_files_without_changing_mozilla_or_skipping_terms(self):
         for platform in ("win64", "win64-aarch64"):
             with self.subTest(platform=platform), tempfile.TemporaryDirectory() as directory:

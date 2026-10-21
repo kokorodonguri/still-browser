@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Still's Firefox for Windows x64 from Mozilla's ESR source.
+"""Build Still's Firefox for Windows x64 or ARM64 from Mozilla's ESR source.
 
     python3 windows/gecko/build.py --firefox 153.5.0esr
     python3 windows/package.py --arch x64 --firefox 153.5.0esr --gecko <printed zip>
@@ -29,6 +29,11 @@ GECKO = Path(__file__).resolve().parent
 ROOT = GECKO.parent.parent
 HOME = Path(os.environ.get("STILL_GECKO_HOME", Path.home() / "still-gecko"))
 PATCHES = sorted((GECKO / "patches").glob("*.patch"))
+ARM64_FILES = GECKO / "arm64" / "files"
+ARCHES = {
+    "x64": ("x86_64-pc-windows-msvc", "win64"),
+    "arm64": ("aarch64-pc-windows-msvc", "win64-aarch64"),
+}
 L10N_REPOSITORY = "https://github.com/mozilla-l10n/firefox-l10n.git"
 LOCALE = "ja"
 
@@ -67,18 +72,26 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def patches_digest() -> str:
+def patches(arch: str) -> list[Path]:
+    return PATCHES + (sorted((GECKO / "arm64").glob("*.patch")) if arch == "arm64" else [])
+
+
+def patches_digest(arch: str = "x64") -> str:
     digest = hashlib.sha256()
-    for patch in PATCHES:
+    for patch in patches(arch):
         digest.update(patch.name.encode() + b"\0" + patch.read_bytes())
+    if arch == "arm64":
+        for path in sorted(ARM64_FILES.rglob("*")):
+            if path.is_file():
+                digest.update(path.relative_to(ARM64_FILES).as_posix().encode() + b"\0" + path.read_bytes())
     return digest.hexdigest()
 
 
-def prepare_source(firefox: str) -> Path:
+def prepare_source(firefox: str, arch: str = "x64") -> Path:
     """An unpacked, patched source tree; unpacked again when the patches change."""
-    source = HOME / f"firefox-{firefox}"
+    source = HOME / (f"firefox-{firefox}" + ("-arm64" if arch == "arm64" else ""))
     marker = source / ".still-patches"
-    if marker.exists() and marker.read_text() == patches_digest():
+    if marker.exists() and marker.read_text() == patches_digest(arch):
         return source
     if source.exists():
         shutil.rmtree(source)
@@ -92,14 +105,16 @@ def prepare_source(firefox: str) -> Path:
     (top,) = unpacked.iterdir()
     top.rename(source)
     unpacked.rmdir()
-    for patch in PATCHES:
+    for patch in patches(arch):
         try:
             run("git", "apply", "--check", patch, cwd=source)
         except subprocess.CalledProcessError:
             raise SystemExit(f"{patch.name} does not apply to Firefox {firefox}: update it for this release.")
         run("git", "apply", patch, cwd=source)
+    if arch == "arm64":
+        shutil.copytree(ARM64_FILES, source, dirs_exist_ok=True)
     brand(source)
-    marker.write_text(patches_digest())
+    marker.write_text(patches_digest(arch))
     return source
 
 
@@ -139,12 +154,16 @@ def l10n(source: Path) -> Path:
     return checkout
 
 
-def mozconfig(source: Path, objdir: Path, l10n_base: Path, safebrowsing: Path | None) -> Path:
+def mozconfig(source: Path, objdir: Path, l10n_base: Path, safebrowsing: Path | None,
+              arch: str = "x64", tests: bool = False) -> Path:
     text = (GECKO / "mozconfig").read_text()
+    text = text.replace("--target=x86_64-pc-windows-msvc", f"--target={ARCHES[arch][0]}")
+    if tests:
+        text = text.replace("ac_add_options --disable-tests\n", "")
     text += f"\nmk_add_options MOZ_OBJDIR={objdir}\nac_add_options --with-l10n-base={l10n_base}\n"
     if safebrowsing:
         text += f"ac_add_options --with-google-safebrowsing-api-keyfile={safebrowsing.resolve()}\n"
-    path = source / "mozconfig.still"
+    path = source / f"mozconfig.still-{arch}"
     path.write_text(text)
     return path
 
@@ -152,21 +171,28 @@ def mozconfig(source: Path, objdir: Path, l10n_base: Path, safebrowsing: Path | 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--firefox", required=True, help="Firefox ESR release, such as 153.5.0esr")
+    parser.add_argument("--arch", choices=ARCHES, default="x64")
+    parser.add_argument("--enable-tests", action="store_true", help="include Gecko's browser tests")
     parser.add_argument("--safebrowsing-key", type=Path,
-                        help="Google Safe Browsing API key file; without it, phishing and malware lists are not updated")
+                        help="Google Safe Browsing API key file (required for ARM64; without it, x64 lists are not updated)")
     args = parser.parse_args()
     if not re.fullmatch(r"\d+\.\d+(?:\.\d+)?esr", args.firefox):
         raise SystemExit("--firefox takes an ESR release such as 153.5.0esr.")
+    if args.arch == "arm64" and not args.safebrowsing_key:
+        raise SystemExit("ARM64 builds require --safebrowsing-key to preserve phishing and malware list updates.")
+    if args.safebrowsing_key and (not args.safebrowsing_key.is_file() or not args.safebrowsing_key.read_bytes().strip()):
+        raise SystemExit("--safebrowsing-key must point to a non-empty API key file.")
     HOME.mkdir(parents=True, exist_ok=True)
-    source = prepare_source(args.firefox)
-    objdir = HOME / f"obj-{args.firefox}-x64"
-    environment = dict(os.environ, MOZCONFIG=str(mozconfig(source, objdir, l10n(source), args.safebrowsing_key)),
+    source = prepare_source(args.firefox, args.arch)
+    objdir = HOME / f"obj-{args.firefox}-{args.arch}"
+    environment = dict(os.environ, MOZCONFIG=str(mozconfig(source, objdir, l10n(source), args.safebrowsing_key,
+                                                        args.arch, args.enable_tests)),
                        MOZBUILD_STATE_PATH=str(HOME / "mozbuild"))
     mach = source / "mach"
     run(mach, "--no-interactive", "build", cwd=source, env=environment)
     run(mach, "--no-interactive", "package", cwd=source, env=environment)
     run(mach, "--no-interactive", "build", f"installers-{LOCALE}", cwd=source, env=environment)
-    built = sorted((objdir / "dist").glob(f"firefox-*.{LOCALE}.win64.zip"))
+    built = sorted((objdir / "dist").glob(f"firefox-*.{LOCALE}.{ARCHES[args.arch][1]}.zip"))
     if not built:
         raise SystemExit(f"No {LOCALE} package in {objdir / 'dist'}.")
     print(built[-1])

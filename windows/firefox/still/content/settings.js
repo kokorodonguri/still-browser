@@ -195,6 +195,26 @@ function initNavigation() {
 }
 
 function init() {
+  const memoryAvailable = prefs.getBoolPref("still.memory.autoUnload.available", false);
+  $("memory-settings").hidden = !memoryAvailable;
+  if (memoryAvailable) {
+    $("auto-unload").checked = prefs.getBoolPref("still.memory.autoUnload.enabled", true);
+    $("unload-minutes").value = String(prefs.getIntPref("still.memory.autoUnload.inactiveMinutes", 5));
+    $("unload-minutes").disabled = !$("auto-unload").checked;
+    bind("auto-unload", "change", () => {
+      prefs.setBoolPref("still.memory.autoUnload.enabled", $("auto-unload").checked);
+      $("unload-minutes").disabled = !$("auto-unload").checked;
+      save();
+    });
+    bind("unload-minutes", "change", () => {
+      const minutes = Number($("unload-minutes").value);
+      if (!$("unload-minutes").reportValidity() || !Number.isInteger(minutes) || minutes < 1 || minutes > 1440) {
+        return;
+      }
+      prefs.setIntPref("still.memory.autoUnload.inactiveMinutes", minutes);
+      save();
+    });
+  }
   $("startup").value = startupChoice();
   $("homepage").value = prefs.getStringPref("browser.startup.homepage", "about:home");
   bind("startup", "change", () => {

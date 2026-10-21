@@ -63,6 +63,10 @@
           <p id="homepage-hint">起動時に「ホームページ」を選ぶと、このページを開きます。</p>
         </div>
         <div class="row"><div><span>既定のブラウザ</span><p id="default-browser-hint">リンクやHTMLファイルを Still で開きます。<br>Windows の設定で Still を選んでください。</p></div><button id="default-browser" aria-describedby="default-browser-hint">既定のブラウザにする…</button></div>
+        <div id="memory-settings" hidden>
+          <div class="row"><label class="check" for="auto-unload"><span>使っていないタブのメモリを解放する<small id="auto-unload-hint">編集中や再生中のタブは保持します。解放したタブは、開くと再読み込みします。</small></span><input id="auto-unload" type="checkbox" role="switch" aria-describedby="auto-unload-hint"></label></div>
+          <div class="row"><label for="unload-minutes">背景タブを保持する時間（分）</label><input id="unload-minutes" type="number" min="1" max="1440" step="1" value="5"></div>
+        </div>
       </fieldset>
     </section>
 

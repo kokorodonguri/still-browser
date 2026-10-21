@@ -1,5 +1,5 @@
-# Still's Firefox for Windows x64, cross-compiled from Linux.
-# build.py adds the object directory and, when given, the Safe Browsing key.
+# Still's Firefox for Windows, cross-compiled from Linux.
+# build.py selects the target, object directory and Safe Browsing key.
 
 ac_add_options --target=x86_64-pc-windows-msvc
 . $topsrcdir/build/mozconfig.clang-cl

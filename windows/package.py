@@ -31,6 +31,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import struct
 import subprocess
 import tempfile
 from urllib.request import urlopen
@@ -124,6 +125,27 @@ def extract_gecko(archive: Path, destination: Path):
                 shutil.copyfileobj(source, output)
 
 
+def check_machine(executable: Path, platform: str):
+    """Check the PE header rather than trusting an archive's filename."""
+    expected = {"win64": 0x8664, "win64-aarch64": 0xAA64}[platform]
+    try:
+        with executable.open("rb") as file:
+            if file.read(2) != b"MZ":
+                raise ValueError("missing DOS header")
+            file.seek(0x3C)
+            offset = struct.unpack("<I", file.read(4))[0]
+            if offset < 64:
+                raise ValueError("invalid PE offset")
+            file.seek(offset)
+            if file.read(4) != b"PE\0\0":
+                raise ValueError("missing PE signature")
+            machine = struct.unpack("<H", file.read(2))[0]
+            if machine != expected:
+                raise ValueError(f"machine 0x{machine:04x}, expected 0x{expected:04x}")
+    except (OSError, ValueError, struct.error) as error:
+        raise SystemExit(f"{executable.name}: not a {platform} executable ({error}).") from error
+
+
 def stage_firefox(firefox: str, platform: str, destination: Path, gecko: Path | None = None) -> str:
     """Firefox with Still's additive settings and icons; returns its version."""
     if destination.exists():
@@ -136,6 +158,10 @@ def stage_firefox(firefox: str, platform: str, destination: Path, gecko: Path | 
         (destination / name).unlink(missing_ok=True)
     if not (destination / "firefox.exe").exists():
         raise SystemExit("The update archive did not contain firefox.exe.")
+    if gecko:
+        check_machine(destination / "firefox.exe", platform)
+        # Gecko lives in xul.dll; reject mixed executable/engine packages too.
+        check_machine(destination / "xul.dll", platform)
     application = configparser.ConfigParser()
     application.read(destination / "application.ini", encoding="utf-8")
     if gecko and application["App"]["Version"] != firefox.removesuffix("esr"):
@@ -244,7 +270,7 @@ def main():
     parser.add_argument("--arch", choices=[*ARCHES, "all"], default="all")
     parser.add_argument("--firefox", help="Firefox ESR release, such as 153.5.0esr (default: Mozilla's latest ESR)")
     parser.add_argument("--gecko", type=Path,
-                        help="x64 only: Still's own Firefox build (the zip printed by windows/gecko/build.py)")
+                        help="Still's own Firefox build matching --arch (the zip printed by windows/gecko/build.py)")
     parser.add_argument("--seal", action="store_true",
                         help="build nothing; write the release record for this version's existing installer + .sig pairs")
     args = parser.parse_args()
@@ -259,8 +285,8 @@ def main():
     firefox = args.firefox or latest_esr()
     if not re.fullmatch(r"\d+\.\d+(?:\.\d+)?esr", firefox):
         raise SystemExit("--firefox takes an ESR release such as 153.5.0esr.")
-    if args.gecko and args.arch != "x64":
-        raise SystemExit("--gecko is an x64 build: pass --arch x64.")
+    if args.gecko and args.arch == "all":
+        raise SystemExit("--gecko requires one architecture: pass --arch x64 or --arch arm64.")
     for arch in ARCHES if args.arch == "all" else [args.arch]:
         package(arch, firefox, args.gecko)
 
