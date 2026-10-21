@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
-const files = path.join(__dirname, "../gecko/arm64/files/browser/components/tabbrowser");
+const files = path.join(__dirname, "../gecko/common/files/browser/components/tabbrowser");
 
 // Execute the shipped modules, replacing only Gecko's module imports/globals.
 function moduleScope(name, globals, symbol) {
@@ -13,7 +13,7 @@ function moduleScope(name, globals, symbol) {
 }
 
 function harness({ queryTimeoutMs = 2000 } = {}) {
-  const prefs = new Map();
+  const prefs = new Map([["still.memory.autoUnload.enabled", true]]);
   const windows = [];
   const errors = [];
   const intervals = new Set();
@@ -28,6 +28,7 @@ function harness({ queryTimeoutMs = 2000 } = {}) {
     console: { error(error) { errors.push(error); } },
     Services: {
       prefs: {
+        addObserver() {}, removeObserver() {},
         getBoolPref: (name, fallback) => prefs.get(name) ?? fallback,
         getIntPref: (name, fallback) => prefs.get(name) ?? fallback,
       },
@@ -207,7 +208,13 @@ test("one timer across repeated initialization and cleanup on shutdown", async (
 function child(elements = []) {
   const Child = moduleScope("StillTabStateChild.sys.mjs", { JSWindowActorChild: class {} }, "StillTabStateChild");
   const actor = new Child();
-  actor.document = { readyState: "complete", querySelectorAll: () => elements };
+  actor.contentWindow = { MutationObserver: class {
+    observe() {} disconnect() {} takeRecords() { return []; }
+  } };
+  actor.document = { readyState: "complete", createTreeWalker() {
+    const copy = elements.map(e => ({ localName: "div", ...e }));
+    return { nextNode: () => copy.shift() };
+  } };
   return actor;
 }
 
@@ -223,26 +230,60 @@ test("child protects modified forms, custom editors, closed shadow roots and sil
     { openOrClosedShadowRoot: { isUAWidget: () => false, querySelectorAll: () => [{ isContentEditable: true }] } },
   ];
   for (const element of protectedElements) {
-    assert.equal(child([element]).receiveMessage({ name: "Still:CanUnload" }), false, JSON.stringify(element));
+    assert.equal(child([element]).receiveMessage({ name: "Still:PassesRetentionChecks" }), false, JSON.stringify(element));
   }
-  assert.equal(child([{ localName: "p" }]).receiveMessage({ name: "Still:CanUnload" }), true);
+  assert.equal(child([{ localName: "p" }]).receiveMessage({ name: "Still:PassesRetentionChecks" }), true);
   assert.equal(child([
     { localName: "input", type: "checkbox", checked: false, defaultChecked: false, value: "on", defaultValue: "" },
     { localName: "select", size: 0, selectedIndex: 0, options: [{ selected: true, defaultSelected: false }] },
     { localName: "input", value: "", cloneNode: () => ({ defaultValue: "" }) },
     { openOrClosedShadowRoot: { isUAWidget: () => true, querySelectorAll: () => [{ isContentEditable: true }] } },
-  ]).receiveMessage({ name: "Still:CanUnload" }), true);
+  ]).receiveMessage({ name: "Still:PassesRetentionChecks" }), true);
 });
 
 test("trusted edits are sticky; incomplete/unknown content is retained", () => {
   const actor = child();
   actor.handleEvent({ isTrusted: false });
-  assert.equal(actor.receiveMessage({ name: "Still:CanUnload" }), true);
+  assert.equal(actor.receiveMessage({ name: "Still:PassesRetentionChecks" }), true);
   actor.handleEvent({ isTrusted: true });
-  assert.equal(actor.receiveMessage({ name: "Still:CanUnload" }), false);
+  assert.equal(actor.receiveMessage({ name: "Still:PassesRetentionChecks" }), false);
   for (const doc of [null, { readyState: "loading" }, { hidden: false }, { readyState: "complete", designMode: "on" }]) {
     const a = child();
     a.document = doc;
-    assert.equal(a.receiveMessage({ name: "Still:CanUnload" }), false);
+    assert.equal(a.receiveMessage({ name: "Still:PassesRetentionChecks" }), false);
   }
+});
+
+ test("default off has no timer or discard; preference starts/stops timer", async () => {
+  const h = harness();
+  h.prefs.clear();
+  h.controller.init();
+  h.tab();
+  await h.controller.tick();
+  assert.equal(h.intervals.size, 0);
+  assert.equal(h.windows[0].gBrowser.discarded.length, 0);
+  h.prefs.set("still.memory.autoUnload.enabled", true);
+  h.controller.observe(null, "nsPref:changed");
+  assert.equal(h.intervals.size, 1);
+  h.prefs.set("still.memory.autoUnload.enabled", false);
+  h.controller.observe(null, "nsPref:changed");
+  assert.equal(h.intervals.size, 0);
+});
+
+test("bounded one-time walk, canvas retention and post-scan mutations", () => {
+  assert.equal(child([{localName: "canvas"}]).receiveMessage({name: "Still:PassesRetentionChecks"}), false);
+  assert.equal(child(Array(5001).fill({localName: "p"})).receiveMessage({name: "Still:PassesRetentionChecks"}), false);
+  const a = child();
+  assert.equal(a.receiveMessage({name: "Still:PassesRetentionChecks"}), true);
+  a.document.createTreeWalker = () => { throw Error("unexpected repeat walk"); };
+  assert.equal(a.receiveMessage({name: "Still:PassesRetentionChecks"}), true);
+  a._observer.takeRecords = () => [{}];
+  assert.equal(a.receiveMessage({name: "Still:PassesRetentionChecks"}), false);
+});
+
+test("failed initial scan remains retained on later queries", () => {
+  const a = child();
+  a.document.createTreeWalker = () => { throw Error("unavailable"); };
+  assert.equal(a.receiveMessage({name: "Still:PassesRetentionChecks"}), false);
+  assert.equal(a.receiveMessage({name: "Still:PassesRetentionChecks"}), false);
 });

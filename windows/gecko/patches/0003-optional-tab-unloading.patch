@@ -1,0 +1,33 @@
+diff --git a/browser/app/profile/firefox.js b/browser/app/profile/firefox.js
+--- a/browser/app/profile/firefox.js
++++ b/browser/app/profile/firefox.js
+@@ -3627,3 +3627,8 @@
+ #ifdef XP_MACOSX
+   pref("browser.macAppMenu.setAsDefaultShown", false);
+ #endif
++
++// Optional tab unloading: disabled unless the user opts in.
++pref("still.memory.autoUnload.available", true, locked);
++pref("still.memory.autoUnload.enabled", false);
++pref("still.memory.autoUnload.inactiveMinutes", 5);
+diff --git a/browser/components/tabbrowser/TabUnloader.sys.mjs b/browser/components/tabbrowser/TabUnloader.sys.mjs
+--- a/browser/components/tabbrowser/TabUnloader.sys.mjs
++++ b/browser/components/tabbrowser/TabUnloader.sys.mjs
+@@ -168,2 +168,5 @@
+     watcher.registerTabUnloader(this);
++    ChromeUtils.importESModule(
++      "moz-src:///browser/components/tabbrowser/StillTabUnloader.sys.mjs"
++    ).StillTabUnloader.init();
+   },
+diff --git a/browser/components/tabbrowser/moz.build b/browser/components/tabbrowser/moz.build
+--- a/browser/components/tabbrowser/moz.build
++++ b/browser/components/tabbrowser/moz.build
+@@ -23,2 +23,4 @@
+     "SmartTabGrouping.sys.mjs",
++    "StillTabStateChild.sys.mjs",
++    "StillTabUnloader.sys.mjs",
+     "TabMetrics.sys.mjs",
+@@ -38,2 +40,3 @@
+     "test/browser/tabs/browser.toml",
++    "test/still/browser.toml",
+ ]

@@ -85,7 +85,7 @@ python3 windows/package.py --arch arm64 --firefox 153.5.0esr --gecko <出力さ�
 
 - ソースは `SHA256SUMS` と照合して `~/still-gecko/`（`STILL_GECKO_HOME` で変更可）に展開します。ツールチェーン（clang・Windows SDK・Rust）は mach が `~/still-gecko/mozbuild` に取得します。日本語は、Mozilla がその版に使った `firefox-l10n` のリビジョンから作り直します。
 - 先に `sudo apt install msitools unzip zip m4 libc6-i386` が必要です（Windows SDK の展開、configure、パッケージ作成、MIDL を動かす wine の 32 ビット部分に使います）。
-- 空きディスクが約 50GB と、RAM 7GB ならスワップ 16GB が必要です。並列数は 6 で、LTO と PGO は使いません。初回は数時間かかります。
+- 空きディスクが約 50GB と、RAM 7GB ならスワップ 16GB が必要です。既定の並列数は 6 で、LTO と PGO は比較用オプションです。初回は数時間かかります。
 - 変更点：
   - `0001-memory-defaults.patch`：
     - 共有コンテンツプロセスを 8 から 4 に減らします（サイト分離の Fission はそのまま）。
@@ -99,27 +99,65 @@ python3 windows/package.py --arch arm64 --firefox 153.5.0esr --gecko <出力さ�
 - `--safebrowsing-key` に Google Safe Browsing の API キーのファイルを渡さないと、フィッシング・マルウェアのリストが更新されません（Mozilla の公式ビルドだけが Mozilla のキーを持っています）。
 - 新しい ESR でパッチが当たらないときは、`build.py` がどのパッチかを示して止まります。
 
-ARM64 は専用のソースディレクトリと `obj-<ESR>-arm64` を使い、共通パッチに加えて `gecko/arm64/` のパッチとファイルを適用します。x64 の既定動作は変わりません。`--gecko` は `--arch all` と併用できません。zip の名前に依存せず、`firefox.exe` と `xul.dll` の PE ヘッダーが指定アーキテクチャと一致することを確認します。
+ARM64 は専用のソースディレクトリと `obj-<ESR>-arm64` を使い、共通パッチに加えて `gecko/arm64/` のパッチとファイルを適用します。タブ解放の実装は `gecko/common/files`、登録と既定無効の設定は共通パッチです。x64 と ARM64 で同じ処理を使い、プロセス数・キャッシュなどの ARM64 固有値だけを `gecko/arm64` に置きます。`--gecko` は `--arch all` と併用できません。zip の名前に依存せず、`firefox.exe` と `xul.dll` の PE ヘッダーが指定アーキテクチャと一致することを確認します。
 
-ARM64 では共有コンテンツプロセスとサイトごとのプロセス上限を各1、メモリキャッシュを16MiB、画像キャッシュ上限を128MiB、戻る・進む用の生存ページキャッシュを0にします。Fission・サンドボックス・危険サイト保護・動画・拡張機能・PDF・開発者ツールは維持します。サイト分離があるため、全体のプロセス数は1にはなりません。先読み・推測接続と不要な特権プロセスの常駐も止めます。既存プロファイルでユーザーが明示した値は保持します。
+ARM64 では共有コンテンツプロセスとサイトごとのプロセス上限を各1、メモリキャッシュを16MiB、画像キャッシュ上限を128MiB、戻る・進む用の生存ページキャッシュは x64 と共通の上限2にします。Fission・サンドボックス・危険サイト保護・動画・拡張機能・PDF・開発者ツールは維持します。サイト分離があるため、全体のプロセス数は1にはなりません。先読み・推測接続と不要な特権プロセスの常駐も止めます。既存プロファイルでユーザーが明示した値は保持します。
 
-一般設定の「使っていないタブのメモリを解放する」で自動解放を切り替え、保持時間を1〜1440分で変更できます。既定は5分で、30秒ごとに全ウィンドウから古い背景タブを最大1つ解放します。選択中・固定・読み込み中・プライベート・音声/動画再生・PiP・通話/共有・ダイアログ・離脱確認のあるタブを保持します。各フレームの入力変更、編集領域、閉じた Shadow DOM も調べます。編集領域のあるページと、一度でも入力変更を検出した文書は保守的に保持するため、送信後でも残ることがあります。状態を確認できない場合も保持します。セッション状態を保存し、保護条件を再確認した後、Firefox の通常のタブ解放処理を使います。再選択時に再読み込みします。
+一般設定の「使っていないタブのメモリを解放する」で自動解放を切り替え、保持時間を1〜1440分で変更できます。既定は無効です。有効にした場合の待機時間は5分で、30秒ごとに全ウィンドウから古い背景タブを最大1つ解放します。選択中・固定・読み込み中・プライベート・音声/動画再生・PiP・通話/共有・ダイアログ・離脱確認のあるタブを保持します。各フレームの入力変更、編集領域、Canvas、独自要素・Shadow DOM があるページを保守的に保持します。編集領域のあるページと、一度でも入力変更を検出した文書は保守的に保持するため、送信後でも残ることがあります。状態を確認できない場合も保持します。ただし JavaScript 内だけの未保存状態や、後から付けた Shadow DOM などを完全には検出できません。判定を通っても「安全に解放できる」という保証はありません。セッション状態を保存し、保護条件を再確認した後、Firefox の通常のタブ解放処理を使います。再選択時に再読み込みします。
 
-設定は `still.memory.autoUnload.enabled`（既定 `true`）と `still.memory.autoUnload.inactiveMinutes`（既定 `5`）です。この機能を組み込んだエンジンだけに設定項目が表示されます。Gecko のブラウザテストを含むビルドは `build.py --enable-tests` で作り、対応する Windows テスト環境で `mach mochitest browser/components/tabbrowser/test/still/` を実行します。
+設定は `still.memory.autoUnload.enabled`（既定 `false`）と `still.memory.autoUnload.inactiveMinutes`（既定 `5`）です。無効中は定期タイマーを動かしません。既存プロファイルで明示的に有効化した値は維持します。この機能を組み込んだエンジンだけに設定項目が表示されます。Firefox 本来のメモリ逼迫時の解放は別機能です。Gecko のブラウザテストを含むビルドは `build.py --enable-tests` で作り、対応する Windows テスト環境で `mach mochitest browser/components/tabbrowser/test/still/` を実行します。
 
-### メモリ削減の検証
+DOM 判定は各文書の初回だけ TreeWalker で最大5,000要素を確認し、フォーム・メディアの候補を最大256個保持します。以後の問い合わせでは候補だけを確認し、DOM が変化した文書は再走査せず保持します。大きい文書、入力操作のあった文書、Canvas・独自 Shadow DOM がある文書も保持します。これは状態保護を優先する保守的な判定で、解放できるタブは減ります。
 
-`.venv-linux/bin/python windows/tests/memory_browser.py` は、一時コピーした実 Firefox に同じモジュールを載せ、解放・再選択時の復元・通常の入力・別オリジンのフレーム・閉じた Shadow DOM・5分の境界・設定の無効化・状態保存中のタブ切り替えを検証します。Linux での機能確認であり、Windows ARM64 の削減量を表すものではありません。結果は `artifacts/windows-memory-checks/report.json` に出ます。
+### メモリと操作時間の比較
 
-ARM64 実機では現行版と独自版を同じ端末、同じプロファイルのコピー、同じ10ページで各3回測ります。各回でブラウザを終了してから開始し、「起動直後」「10タブ読み込み後」「背景化6分後」「背景タブを閉じた後」に次を実行します。拡張機能・ウィンドウサイズ・電源設定・ページの一覧を揃えてください。
+`.venv-linux/bin/python windows/tests/memory_browser.py` は、一時コピーした実 Firefox に同じモジュールを載せ、解放・復元・入力・別オリジンのフレーム・閉じた Shadow DOM・待機時間・無効化・保存中の選択変更を検証します。Linux の機能確認であり、Windows ARM64 の削減量ではありません。
+
+Windows 実機では同じ端末、同じ10ページ、同じ拡張機能・電源設定・画面サイズで各ビルド3回以上を測ります。実行順を交互にし、毎回同じ状態のプロファイルを複製して開始します。自動解放はまず無効同士を比較し、有効時は別の比較にします。「起動直後」「10タブ読込後」「背景化6分後」「背景タブを閉じた後」を別ファイルに記録します。
 
 ```powershell
-.\windows\tests\measure_memory.ps1 -InstallDir "$env:LOCALAPPDATA\Still" -Build custom-arm64 -Run 1 -Phase background6m -Output memory.csv
+.\windows\tests\measure_memory.ps1 -InstallDir "$env:LOCALAPPDATA\Still" -Build arm64-baseline -Run 1 -Phase background6m -DurationSeconds 120 -IntervalMs 1000 -Output baseline-run1.csv
 ```
 
-`-Build` で現行版/独自版、`-Run` で1〜3、`-Phase` で測定段階を区別します。全 Still プロセスの Private Bytes 合計を主指標とし、Working Set 合計とプロセス数も記録します。Working Set 合計は共有ページを重複計上するため、物理メモリの実使用量そのものではありません。通常の閲覧と編集保護を確認したうえで、背景化後の Private Bytes が現行版より繰り返し減ることを合格条件とします。実機未測定の削減率は表示しません。
+CSV はサンプルごとの Private Bytes・Working Set 合計、測定時間、対象数・取得成功数・エラーを含みます。`.processes.csv` は PID と生成時刻ごとの推移、CPU 時間と PageFaultCount の累積値を記録します。ページフォールトは同じ PID＋生成時刻の差分で比較します（ソフトフォールトを含む32bitカウンターで、周回に注意）。`.summary.json` は完全なサンプルだけの中央値・ピークです。取得失敗や取得中の終了、実行ファイルのパスが取得できないブラウザプロセスがあれば、そのサンプルの合計は空欄になります。不完全なサンプルが1つでもある実行は `Comparable=false` とし、削減率の比較を拒否します。Working Set 合計は共有ページを重複計上します。
+
+操作時間と allocator は Selenium＋対応する geckodriver を使う専用の新規テストプロファイルで測ります。通常の個人用プロファイルでは実行しないでください。
+
+```powershell
+python -m pip install selenium
+python windows/tests/benchmark_browser.py --firefox "C:/test/Still/firefox/firefox.exe" --geckodriver "C:/tools/geckodriver.exe" --build arm64-baseline --repeats 10 --samples 24 --interval 5 --output baseline-browser.json
+python windows/tests/compare_benchmarks.py baseline-run1.csv.summary.json candidate-run1.csv.summary.json
+python windows/tests/compare_benchmarks.py baseline-browser.json candidate-browser.json
+```
+
+既定はローカルの同一10ページです。実サイトは `--urls pages.json`（URL配列）で指定できます。タブ切替・ページ読込・戻るの完了後の2回の animation frame までの時間、スクロールの60フレームの間隔を記録し、中央値・p95・ピークを比較します。WebDriver の往復時間を含むため、ハードウェア入力から描画までの遅延ではありません。ローカル fixture の戻る操作では `pageshow.persisted` も残します。実機の操作速度比較は headless を使わず、画面を前面に保って行ってください。メモリサンプラーを同時実行する場合も両ビルドで条件を合わせます。
+
+操作の測定後、GCやメモリ最小化を強制せず、全 Gecko プロセスの memory reporter を繰り返し取得します。`heap/committed/unused-pages/dirty` が jemalloc の返却可能な未返却メモリです。allocated・bookkeeping・bin-unused 等も別々のまま記録し、単純な「commit−allocated」を dirty と扱いません。取得前後のプロセス一覧と照合し、dirty report が欠ける PID は `missingPids`、合計は `null` とします。レポート収集には負荷があるので操作時間の測定区間と分離しています。
+
+比較の差分は候補−基準です。Private Bytes の中央値だけでなくピーク、操作時間・スクロール p95、同じ期間のページフォールト増分を併記し、繰り返しのばらつきと合わせて判断します。失敗した実行を削減量として数えず、原因を確認して再測定します。
+
+### jemalloc・PGO・LTO の比較ビルド
+
+共通の jemalloc 上限は現在の64ページを維持します。`--dirty-pages 16|32|64|128|256` は実験用で、256が元の上限との比較です。64より下げる効果やフォールト・遅延への影響は Windows 実機未確認です。計測前に既定値をさらに下げません。
+
+```sh
+# ThinLTOだけを比較
+python3 windows/gecko/build.py --arch arm64 --firefox 153.5.0esr --safebrowsing-key /path/to/key --lto thin
+# allocatorだけを比較
+python3 windows/gecko/build.py --arch arm64 --firefox 153.5.0esr --safebrowsing-key /path/to/key --dirty-pages 32
+# プロファイル収集用。配布・性能比較用ではありません。
+python3 windows/gecko/build.py --arch arm64 --firefox 153.5.0esr --safebrowsing-key /path/to/key --pgo generate
+# 同一ソース・同一アーキテクチャで収集してマージしたプロファイルを使用
+python3 windows/gecko/build.py --arch arm64 --firefox 153.5.0esr --safebrowsing-key /path/to/key --pgo use --pgo-profile /path/to/arm64.profdata --lto thin
+```
+
+PGO の計測用ビルドを Windows 対象端末で起動する前に `LLVM_PROFILE_FILE=C:/profiles/still-%p.profraw` を設定し、代表的な閲覧操作後に正常終了します。ビルドに使った LLVM の `llvm-profdata merge -o arm64.profdata <収集したprofraw群>` でマージします。x64 のプロファイルを ARM64 に流用しません。`--lto full` も選べますがリンク時の必要メモリは増えます。PGO収集中は Mozilla が LTO を無効化するため併用を拒否します。PGO/LTO の削減効果は未確認です。
+
+共通パッチ・オプションは両アーキテクチャで利用できます。ARM64 のプロセス数・キャッシュ縮小は CPU 固有の必須条件ではなく、現時点の製品設定です。比較は各アーキテクチャ内で行い、採用が決まった共通最適化だけを共通既定に反映します。実験ビルドは別 obj ディレクトリを使い、PGO プロファイルのハッシュも区別します。各 obj の `still-build.json` に ESR・アーキテクチャ・オプション・パッチとプロファイルの SHA256 を記録します。API キーは記録しません。
 
 ## テスト
+
+`pwsh -NoProfile -File windows/tests/measure_memory_failure.test.ps1` はプロセス取得失敗を注入し、不完全サンプル・空の集計値・エラー記録を検証します。Windows の実際のプロセスメモリ取得は実機で別途確認が必要です。
 
 ```sh
 cd windows/launcher

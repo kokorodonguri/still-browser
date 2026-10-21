@@ -2,14 +2,17 @@ diff --git a/memory/build/Globals.h b/memory/build/Globals.h
 index 4c18c66..4b5a8de 100644
 --- a/memory/build/Globals.h
 +++ b/memory/build/Globals.h
-@@ -148,7 +148,9 @@ static inline size_t GetChunkOffsetForPtr(const void* aPtr) {
+@@ -148,7 +148,12 @@ static inline size_t GetChunkOffsetForPtr(const void* aPtr) {
  }
  
  // Maximum number of dirty pages per arena.
 -#define DIRTY_MAX_DEFAULT (1U << 8)
 +// Still: 64 pages (256 KiB with 4 KiB pages) instead of 256, so freed memory
 +// goes back to Windows sooner in every process.
-+#define DIRTY_MAX_DEFAULT (1U << 6)
++#ifndef STILL_DIRTY_MAX_PAGES
++#define STILL_DIRTY_MAX_PAGES 64
++#endif
++#define DIRTY_MAX_DEFAULT STILL_DIRTY_MAX_PAGES
  
  enum PoisonType {
    NONE,

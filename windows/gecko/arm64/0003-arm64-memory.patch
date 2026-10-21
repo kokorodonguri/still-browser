@@ -1,10 +1,10 @@
 diff --git a/browser/app/profile/firefox.js b/browser/app/profile/firefox.js
 --- a/browser/app/profile/firefox.js
 +++ b/browser/app/profile/firefox.js
-@@ -3627,3 +3627,21 @@
- #ifdef XP_MACOSX
-   pref("browser.macAppMenu.setAsDefaultShown", false);
- #endif
+@@ -3632,3 +3632,16 @@
+ pref("still.memory.autoUnload.available", true, locked);
+ pref("still.memory.autoUnload.enabled", false);
+ pref("still.memory.autoUnload.inactiveMinutes", 5);
 +
 +// Still ARM64: prefer a smaller resident footprint over speculative work.
 +// Fission and sandbox boundaries are unchanged; these are per-type/origin caps.
@@ -13,34 +13,8 @@ diff --git a/browser/app/profile/firefox.js b/browser/app/profile/firefox.js
 +pref("dom.ipc.keepProcessesAlive.privilegedabout", 0);
 +pref("browser.cache.memory.capacity", 16384);
 +pref("image.mem.surfacecache.max_size_kb", 128 * 1024);
-+pref("browser.sessionhistory.max_total_viewers", 0);
 +pref("network.prefetch-next", false);
 +pref("network.dns.disablePrefetch", true);
 +pref("network.http.speculative-parallel-limit", 0);
 +pref("browser.urlbar.speculativeConnect.enabled", false);
 +pref("browser.places.speculativeConnect.enabled", false);
-+// Availability is a build capability, distinct from the user's enable switch.
-+pref("still.memory.autoUnload.available", true, locked);
-+pref("still.memory.autoUnload.enabled", true);
-+pref("still.memory.autoUnload.inactiveMinutes", 5);
-diff --git a/browser/components/tabbrowser/TabUnloader.sys.mjs b/browser/components/tabbrowser/TabUnloader.sys.mjs
---- a/browser/components/tabbrowser/TabUnloader.sys.mjs
-+++ b/browser/components/tabbrowser/TabUnloader.sys.mjs
-@@ -168,2 +168,5 @@
-     watcher.registerTabUnloader(this);
-+    ChromeUtils.importESModule(
-+      "moz-src:///browser/components/tabbrowser/StillTabUnloader.sys.mjs"
-+    ).StillTabUnloader.init();
-   },
-diff --git a/browser/components/tabbrowser/moz.build b/browser/components/tabbrowser/moz.build
---- a/browser/components/tabbrowser/moz.build
-+++ b/browser/components/tabbrowser/moz.build
-@@ -23,2 +23,4 @@
-     "SmartTabGrouping.sys.mjs",
-+    "StillTabStateChild.sys.mjs",
-+    "StillTabUnloader.sys.mjs",
-     "TabMetrics.sys.mjs",
-@@ -38,2 +40,3 @@
-     "test/browser/tabs/browser.toml",
-+    "test/still/browser.toml",
- ]

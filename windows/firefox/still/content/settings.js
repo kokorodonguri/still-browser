@@ -198,7 +198,7 @@ function init() {
   const memoryAvailable = prefs.getBoolPref("still.memory.autoUnload.available", false);
   $("memory-settings").hidden = !memoryAvailable;
   if (memoryAvailable) {
-    $("auto-unload").checked = prefs.getBoolPref("still.memory.autoUnload.enabled", true);
+    $("auto-unload").checked = prefs.getBoolPref("still.memory.autoUnload.enabled", false);
     $("unload-minutes").value = String(prefs.getIntPref("still.memory.autoUnload.inactiveMinutes", 5));
     $("unload-minutes").disabled = !$("auto-unload").checked;
     bind("auto-unload", "change", () => {

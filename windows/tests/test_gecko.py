@@ -33,12 +33,33 @@ class GeckoChecks(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             overlay = Path(directory)
             (overlay / "actor.sys.mjs").write_text("old")
-            with patch.object(gecko, "ARM64_FILES", overlay):
+            with patch.object(gecko, "COMMON_FILES", overlay):
                 arm = gecko.patches_digest("arm64")
                 x64 = gecko.patches_digest("x64")
                 (overlay / "actor.sys.mjs").write_text("new")
                 self.assertNotEqual(gecko.patches_digest("arm64"), arm)
-                self.assertEqual(gecko.patches_digest("x64"), x64)
+                self.assertNotEqual(gecko.patches_digest("x64"), x64)
+
+    def test_build_variants_are_explicit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)
+            for arch in gecko.ARCHES:
+                config = gecko.mozconfig(source, source / "obj", source / "l10n", None,
+                    arch, False, "thin", "use", source / "profile.profdata", 32).read_text()
+                self.assertIn("--enable-lto=thin", config)
+                self.assertIn("--enable-profile-use", config)
+                self.assertIn(f"--with-pgo-profile-path={source}/profile.profdata", config)
+                self.assertIn("-DSTILL_DIRTY_MAX_PAGES=32", config)
+                baseline = gecko.mozconfig(source, source / "obj", source / "l10n", None, arch).read_text()
+                self.assertIn("--disable-lto", baseline)
+                self.assertNotIn("--enable-profile-", baseline)
+
+    def test_pgo_validation_precedes_download(self):
+        for flags in (["--pgo", "use"], ["--pgo", "generate", "--lto", "thin"]):
+            with patch("sys.argv", ["build.py", "--firefox", "153.5.0esr", *flags]), \
+                    patch.object(gecko, "prepare_source", side_effect=AssertionError("must not download")):
+                with self.assertRaises(SystemExit):
+                    gecko.main()
 
     def test_arm64_requires_safe_browsing_key_before_build_or_download(self):
         with patch("sys.argv", ["build.py", "--arch", "arm64", "--firefox", "153.5.0esr"]), \

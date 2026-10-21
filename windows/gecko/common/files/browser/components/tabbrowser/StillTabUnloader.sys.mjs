@@ -15,21 +15,35 @@ const QUERY_TIMEOUT = 2_000;
 // never force-discard, synthetic memory pressure or working-set trimming.
 export const StillTabUnloader = {
   init() {
-    if (this._timer) {
+    if (this._initialized) {
       return;
     }
+    this._initialized = true;
     ChromeUtils.registerWindowActor("StillTabState", {
       child: {
         esModuleURI: "moz-src:///browser/components/tabbrowser/StillTabStateChild.sys.mjs",
-        events: { input: { capture: true }, change: { capture: true } },
+        events: { input: { capture: true }, change: { capture: true },
+          pointerdown: { capture: true }, keydown: { capture: true } },
       },
       allFrames: true,
     });
-    this._timer = setInterval(() => this.tick().catch(console.error), INTERVAL);
+    Services.prefs.addObserver(ENABLED, this);
+    this.updateTimer();
     Services.obs.addObserver(this, "quit-application-granted");
   },
 
-  observe() {
+  updateTimer() {
+    clearInterval(this._timer);
+    this._timer = Services.prefs.getBoolPref(ENABLED, false)
+      ? setInterval(() => this.tick().catch(console.error), INTERVAL) : null;
+  },
+
+  observe(_subject, topic) {
+    if (topic === "nsPref:changed") {
+      this.updateTimer();
+      return;
+    }
+    Services.prefs.removeObserver(ENABLED, this);
     clearInterval(this._timer);
     this._timer = null;
     this._stopped = true;
@@ -41,7 +55,7 @@ export const StillTabUnloader = {
     const browser = tab.linkedBrowser;
     const minutes = Math.max(1, Math.min(1440, Services.prefs.getIntPref(MINUTES, 5)));
     if (
-      this._stopped || !Services.prefs.getBoolPref(ENABLED, true) ||
+      this._stopped || !Services.prefs.getBoolPref(ENABLED, false) ||
       !tab.isConnected || tab.selected || tab.closing || tab.pinned || tab.undiscardable ||
       tab.hasAttribute("pending") || tab.hasAttribute("busy") ||
       tab.soundPlaying || tab.pictureinpicture ||
@@ -78,17 +92,17 @@ export const StillTabUnloader = {
     return result;
   },
 
-  async safeFrames(frames) {
+  async passesRetentionChecks(frames) {
     let timeout;
     try {
       return await Promise.race([
         Promise.all(frames.map(global =>
-          global.getActor("StillTabState").sendQuery("Still:CanUnload")
+          global.getActor("StillTabState").sendQuery("Still:PassesRetentionChecks")
         )).then(results => results.every(result => result === true)),
         new Promise(resolve => { timeout = setTimeout(() => resolve(false), QUERY_TIMEOUT); }),
       ]);
     } catch (error) {
-      // Navigation, crashed frames and unavailable actors are not safe to discard.
+      // Navigation, crashed frames and unavailable actors must be retained.
       return false;
     } finally {
       clearTimeout(timeout);
@@ -96,7 +110,7 @@ export const StillTabUnloader = {
   },
 
   async tick() {
-    if (this._running || this._stopped || !Services.prefs.getBoolPref(ENABLED, true)) {
+    if (this._running || this._stopped || !Services.prefs.getBoolPref(ENABLED, false)) {
       return;
     }
     this._running = true;
@@ -117,14 +131,14 @@ export const StillTabUnloader = {
           }
           const browser = tab.linkedBrowser;
           const frames = this.frames(browser.browsingContext);
-          if (!await this.safeFrames(frames)) {
+          if (!await this.passesRetentionChecks(frames)) {
             continue;
           }
           await gBrowser.prepareDiscardBrowser(tab);
           // Recheck after the asynchronous session flush: a user may select,
           // edit, navigate, start media, or change the preference while waiting.
           if (!this.eligible(tab, gBrowser) || browser !== tab.linkedBrowser ||
-              !await this.safeFrames(frames) || !this.eligible(tab, gBrowser)) {
+              !await this.passesRetentionChecks(frames) || !this.eligible(tab, gBrowser)) {
             continue;
           }
           const current = this.frames(browser.browsingContext);

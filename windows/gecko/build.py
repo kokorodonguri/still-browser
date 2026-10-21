@@ -29,7 +29,7 @@ GECKO = Path(__file__).resolve().parent
 ROOT = GECKO.parent.parent
 HOME = Path(os.environ.get("STILL_GECKO_HOME", Path.home() / "still-gecko"))
 PATCHES = sorted((GECKO / "patches").glob("*.patch"))
-ARM64_FILES = GECKO / "arm64" / "files"
+COMMON_FILES = GECKO / "common" / "files"
 ARCHES = {
     "x64": ("x86_64-pc-windows-msvc", "win64"),
     "arm64": ("aarch64-pc-windows-msvc", "win64-aarch64"),
@@ -80,10 +80,9 @@ def patches_digest(arch: str = "x64") -> str:
     digest = hashlib.sha256()
     for patch in patches(arch):
         digest.update(patch.name.encode() + b"\0" + patch.read_bytes())
-    if arch == "arm64":
-        for path in sorted(ARM64_FILES.rglob("*")):
-            if path.is_file():
-                digest.update(path.relative_to(ARM64_FILES).as_posix().encode() + b"\0" + path.read_bytes())
+    for path in sorted(COMMON_FILES.rglob("*")):
+        if path.is_file():
+            digest.update(path.relative_to(COMMON_FILES).as_posix().encode() + b"\0" + path.read_bytes())
     return digest.hexdigest()
 
 
@@ -111,8 +110,7 @@ def prepare_source(firefox: str, arch: str = "x64") -> Path:
         except subprocess.CalledProcessError:
             raise SystemExit(f"{patch.name} does not apply to Firefox {firefox}: update it for this release.")
         run("git", "apply", patch, cwd=source)
-    if arch == "arm64":
-        shutil.copytree(ARM64_FILES, source, dirs_exist_ok=True)
+    shutil.copytree(COMMON_FILES, source, dirs_exist_ok=True)
     brand(source)
     marker.write_text(patches_digest(arch))
     return source
@@ -155,7 +153,8 @@ def l10n(source: Path) -> Path:
 
 
 def mozconfig(source: Path, objdir: Path, l10n_base: Path, safebrowsing: Path | None,
-              arch: str = "x64", tests: bool = False) -> Path:
+              arch: str = "x64", tests: bool = False, lto: str = "off",
+              pgo: str = "off", profile: Path | None = None, dirty_pages: int = 64) -> Path:
     text = (GECKO / "mozconfig").read_text()
     text = text.replace("--target=x86_64-pc-windows-msvc", f"--target={ARCHES[arch][0]}")
     if tests:
@@ -163,6 +162,13 @@ def mozconfig(source: Path, objdir: Path, l10n_base: Path, safebrowsing: Path | 
     text += f"\nmk_add_options MOZ_OBJDIR={objdir}\nac_add_options --with-l10n-base={l10n_base}\n"
     if safebrowsing:
         text += f"ac_add_options --with-google-safebrowsing-api-keyfile={safebrowsing.resolve()}\n"
+    text += "ac_add_options --disable-lto\n" if lto == "off" else f"ac_add_options --enable-lto={lto}\n"
+    if pgo != "off":
+        text += f"ac_add_options --enable-profile-{pgo}\n"
+    if profile:
+        text += f"ac_add_options --with-pgo-profile-path={profile.resolve()}\n"
+    text += f'export CFLAGS="-DSTILL_DIRTY_MAX_PAGES={dirty_pages}"\n'
+    text += f'export CXXFLAGS="-DSTILL_DIRTY_MAX_PAGES={dirty_pages}"\n'
     path = source / f"mozconfig.still-{arch}"
     path.write_text(text)
     return path
@@ -175,7 +181,18 @@ def main():
     parser.add_argument("--enable-tests", action="store_true", help="include Gecko's browser tests")
     parser.add_argument("--safebrowsing-key", type=Path,
                         help="Google Safe Browsing API key file (required for ARM64; without it, x64 lists are not updated)")
+    parser.add_argument("--lto", choices=("off", "thin", "full"), default="off")
+    parser.add_argument("--pgo", choices=("off", "generate", "use"), default="off")
+    parser.add_argument("--pgo-profile", type=Path, help="merged .profdata from this architecture and source revision")
+    parser.add_argument("--dirty-pages", type=int, choices=(16, 32, 64, 128, 256), default=64,
+                        help="experimental jemalloc per-arena limit; 64 is the existing baseline")
     args = parser.parse_args()
+    if args.pgo == "use" and (not args.pgo_profile or not args.pgo_profile.is_file()):
+        parser.error("--pgo use requires an existing --pgo-profile")
+    if args.pgo != "use" and args.pgo_profile:
+        parser.error("--pgo-profile requires --pgo use")
+    if args.pgo == "generate" and args.lto != "off":
+        parser.error("Mozilla disables LTO for profile generation; use --lto off")
     if not re.fullmatch(r"\d+\.\d+(?:\.\d+)?esr", args.firefox):
         raise SystemExit("--firefox takes an ESR release such as 153.5.0esr.")
     if args.arch == "arm64" and not args.safebrowsing_key:
@@ -185,8 +202,21 @@ def main():
     HOME.mkdir(parents=True, exist_ok=True)
     source = prepare_source(args.firefox, args.arch)
     objdir = HOME / f"obj-{args.firefox}-{args.arch}"
+    if (args.lto, args.pgo, args.dirty_pages) != ("off", "off", 64):
+        suffix = f"-lto-{args.lto}-pgo-{args.pgo}-dirty-{args.dirty_pages}"
+        if args.pgo_profile:
+            suffix += "-" + sha256(args.pgo_profile)[:12]
+        objdir = objdir.with_name(objdir.name + suffix)
+    objdir.mkdir(parents=True, exist_ok=True)
+    # Reproducibility metadata contains hashes, never the API key or its path.
+    (objdir / "still-build.json").write_text(json.dumps({
+        "firefox": args.firefox, "arch": args.arch, "lto": args.lto, "pgo": args.pgo,
+        "dirty_pages": args.dirty_pages, "patches_sha256": patches_digest(args.arch),
+        "profile_sha256": sha256(args.pgo_profile) if args.pgo_profile else None,
+    }, indent=2) + "\n")
     environment = dict(os.environ, MOZCONFIG=str(mozconfig(source, objdir, l10n(source), args.safebrowsing_key,
-                                                        args.arch, args.enable_tests)),
+                                                        args.arch, args.enable_tests, args.lto, args.pgo,
+                                                        args.pgo_profile, args.dirty_pages)),
                        MOZBUILD_STATE_PATH=str(HOME / "mozbuild"))
     mach = source / "mach"
     run(mach, "--no-interactive", "build", cwd=source, env=environment)

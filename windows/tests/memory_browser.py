@@ -20,7 +20,7 @@ from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 
 ROOT = Path(__file__).resolve().parents[2]
-MODULES = ROOT / "windows/gecko/arm64/files/browser/components/tabbrowser"
+MODULES = ROOT / "windows/gecko/common/files/browser/components/tabbrowser"
 PREFIX = "moz-src:///browser/components/tabbrowser/"
 RELOCATED = "resource://still-memory/"
 
@@ -129,7 +129,7 @@ def run(binary, geckodriver, output):
                     details["actor"] = driver.execute_async_script("""
                       const done = arguments[arguments.length-1];
                       const global = memoryCandidate.linkedBrowser.browsingContext.currentWindowGlobal;
-                      global.getActor('StillTabState').sendQuery('Still:CanUnload').then(done, e => done(String(e)));
+                      global.getActor('StillTabState').sendQuery('Still:PassesRetentionChecks').then(done, e => done(String(e)));
                     """)
                     raise AssertionError(f"plain inactive tab was not discarded: {details}")
                 passed("plain background tab discarded through real Gecko APIs")
@@ -137,6 +137,11 @@ def run(binary, geckodriver, output):
                 driver.switch_to.window(handle)
                 WebDriverWait(driver, 20).until(lambda d: d.find_elements(By.ID, "draft"))
                 passed("discarded tab restores on selection")
+                remove_candidate()
+
+                candidate(edit=lambda: driver.execute_script("document.body.append(document.createElement('canvas'))"))
+                assert not tick(), "canvas page was discarded"
+                passed("canvas page retained")
                 remove_candidate()
 
                 candidate(edit=lambda: driver.find_element(By.ID, "draft").send_keys("unsaved draft"))
